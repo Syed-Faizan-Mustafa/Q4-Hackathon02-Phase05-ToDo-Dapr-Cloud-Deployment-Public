@@ -1,0 +1,199 @@
+# API Contract: Create Task
+# POST /api/v1/users/{user_id}/tasks
+
+openapi: 3.0.3
+info:
+  title: Create Task API
+  version: 1.0.0
+
+paths:
+  /api/v1/users/{user_id}/tasks:
+    post:
+      operationId: createTask
+      summary: Create a new task
+      description: Creates a new task for the authenticated user
+      tags:
+        - Tasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID (must match JWT sub claim)
+          schema:
+            type: string
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+            examples:
+              minimal:
+                summary: Minimal request (title only)
+                value:
+                  title: "Buy groceries"
+              complete:
+                summary: Complete request
+                value:
+                  title: "Buy groceries"
+                  description: "Milk, eggs, bread, and vegetables"
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+              example:
+                id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                user_id: "550e8400-e29b-41d4-a716-446655440000"
+                title: "Buy groceries"
+                description: "Milk, eggs, bread, and vegetables"
+                completed: false
+                created_at: "2026-01-10T10:30:00Z"
+                updated_at: "2026-01-10T10:30:00Z"
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                missing_title:
+                  summary: Missing title
+                  value:
+                    detail: "Validation error"
+                    code: "VALIDATION_ERROR"
+                    errors:
+                      - field: "title"
+                        message: "Title is required"
+                title_too_long:
+                  summary: Title too long
+                  value:
+                    detail: "Validation error"
+                    code: "VALIDATION_ERROR"
+                    errors:
+                      - field: "title"
+                        message: "Title must not exceed 255 characters"
+        '401':
+          description: Unauthorized - Missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Invalid or expired token"
+                code: "UNAUTHORIZED"
+        '404':
+          description: User ID mismatch (path user_id does not match JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Resource not found"
+                code: "NOT_FOUND"
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until rate limit resets
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Rate limit exceeded. Try again later."
+                code: "RATE_LIMITED"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    TaskCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Task title (required)
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Task description (optional)
+
+    TaskResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - completed
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique task identifier
+        user_id:
+          type: string
+          description: Owner's user ID
+        title:
+          type: string
+          description: Task title
+        description:
+          type: string
+          nullable: true
+          description: Task description
+        completed:
+          type: boolean
+          description: Task completion status
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp (ISO 8601)
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (ISO 8601)
+
+    ValidationError:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code

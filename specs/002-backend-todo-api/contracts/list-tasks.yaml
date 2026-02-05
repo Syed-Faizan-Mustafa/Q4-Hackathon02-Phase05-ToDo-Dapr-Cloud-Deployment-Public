@@ -1,0 +1,142 @@
+# API Contract: List Tasks
+# GET /api/v1/users/{user_id}/tasks
+
+openapi: 3.0.3
+info:
+  title: List Tasks API
+  version: 1.0.0
+
+paths:
+  /api/v1/users/{user_id}/tasks:
+    get:
+      operationId: listTasks
+      summary: List all tasks for user
+      description: Returns all tasks belonging to the authenticated user, sorted by creation date (newest first)
+      tags:
+        - Tasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID (must match JWT sub claim)
+          schema:
+            type: string
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: List of tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+              examples:
+                with_tasks:
+                  summary: User has tasks
+                  value:
+                    - id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                      user_id: "550e8400-e29b-41d4-a716-446655440000"
+                      title: "Buy groceries"
+                      description: "Milk, eggs, bread"
+                      completed: false
+                      created_at: "2026-01-10T10:30:00Z"
+                      updated_at: "2026-01-10T10:30:00Z"
+                    - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      user_id: "550e8400-e29b-41d4-a716-446655440000"
+                      title: "Call mom"
+                      description: null
+                      completed: true
+                      created_at: "2026-01-09T08:00:00Z"
+                      updated_at: "2026-01-09T12:00:00Z"
+                empty:
+                  summary: User has no tasks
+                  value: []
+        '401':
+          description: Unauthorized - Missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Invalid or expired token"
+                code: "UNAUTHORIZED"
+        '404':
+          description: User ID mismatch (path user_id does not match JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Resource not found"
+                code: "NOT_FOUND"
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until rate limit resets
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Rate limit exceeded. Try again later."
+                code: "RATE_LIMITED"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    TaskResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - completed
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique task identifier
+        user_id:
+          type: string
+          description: Owner's user ID
+        title:
+          type: string
+          description: Task title
+        description:
+          type: string
+          nullable: true
+          description: Task description
+        completed:
+          type: boolean
+          description: Task completion status
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp (ISO 8601)
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (ISO 8601)
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code

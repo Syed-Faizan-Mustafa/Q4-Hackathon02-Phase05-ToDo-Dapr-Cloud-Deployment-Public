@@ -1,0 +1,21 @@
+# Backend Todo API - Production Dependencies
+# Python 3.11+
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Database ORM
+sqlmodel>=0.0.16
+
+# Async PostgreSQL driver
+asyncpg>=0.29.0
+
+# JWT Authentication
+python-jose[cryptography]>=3.3.0
+
+# Rate Limiting
+slowapi>=0.1.9
+
+# Configuration Management
+pydantic-settings>=2.1.0

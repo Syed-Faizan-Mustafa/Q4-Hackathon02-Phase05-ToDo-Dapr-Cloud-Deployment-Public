@@ -1,0 +1,95 @@
+# API Contract: Delete Task
+# DELETE /api/v1/users/{user_id}/tasks/{task_id}
+
+openapi: 3.0.3
+info:
+  title: Delete Task API
+  version: 1.0.0
+
+paths:
+  /api/v1/users/{user_id}/tasks/{task_id}:
+    delete:
+      operationId: deleteTask
+      summary: Delete a task
+      description: Permanently deletes a task belonging to the authenticated user
+      tags:
+        - Tasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID (must match JWT sub claim)
+          schema:
+            type: string
+            example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: task_id
+          in: path
+          required: true
+          description: Task UUID
+          schema:
+            type: string
+            format: uuid
+            example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      responses:
+        '204':
+          description: Task deleted successfully (no content returned)
+        '401':
+          description: Unauthorized - Missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Invalid or expired token"
+                code: "UNAUTHORIZED"
+        '404':
+          description: Task not found or does not belong to user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  summary: Task does not exist
+                  value:
+                    detail: "Task not found"
+                    code: "NOT_FOUND"
+                wrong_user:
+                  summary: Task belongs to another user (same response to prevent enumeration)
+                  value:
+                    detail: "Task not found"
+                    code: "NOT_FOUND"
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until rate limit resets
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Rate limit exceeded. Try again later."
+                code: "RATE_LIMITED"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
