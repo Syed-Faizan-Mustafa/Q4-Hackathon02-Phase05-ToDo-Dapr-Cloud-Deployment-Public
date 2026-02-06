@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent I/O Contracts for Todo Chatbot",
+  "version": "1.0.0",
+  "description": "Input/Output contracts for multi-agent orchestration",
+  "agents": {
+    "todo-orchestrator": {
+      "description": "Entry point agent - coordinates all other agents",
+      "input": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "User's chat message",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "userId": {
+            "type": "string",
+            "description": "Authenticated user ID"
+          },
+          "jwt": {
+            "type": "string",
+            "description": "JWT token for backend auth"
+          }
+        },
+        "required": ["message", "userId", "jwt"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "response": {
+            "type": "string",
+            "description": "Final response message to user"
+          },
+          "intent": {
+            "$ref": "#/definitions/ChatIntent",
+            "description": "Detected intent (for debugging)"
+          },
+          "error": {
+            "$ref": "#/definitions/ChatError",
+            "description": "Error if operation failed"
+          }
+        },
+        "required": ["response"]
+      }
+    },
+    "intent-analyzer": {
+      "description": "Parses user message to extract intent and entities using Cohere LLM",
+      "config": {
+        "model": "command-r-plus",
+        "temperature": 0.3,
+        "max_tokens": 512
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "User's chat message"
+          }
+        },
+        "required": ["message"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "intent": { "$ref": "#/definitions/ChatIntent" },
+          "error": { "$ref": "#/definitions/AgentError" }
+        },
+        "required": ["success"]
+      }
+    },
+    "mcp-tool-executor": {
+      "description": "Invokes MCP tools based on parsed intent",
+      "input": {
+        "type": "object",
+        "properties": {
+          "intent": { "$ref": "#/definitions/ChatIntent" },
+          "userId": { "type": "string" },
+          "jwt": { "type": "string" }
+        },
+        "required": ["intent", "userId", "jwt"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "action": {
+            "type": "string",
+            "description": "Human-readable action performed"
+          },
+          "result": {
+            "type": "object",
+            "description": "MCP tool result data"
+          },
+          "error": { "$ref": "#/definitions/AgentError" }
+        },
+        "required": ["success"]
+      }
+    },
+    "response-composer": {
+      "description": "Generates user-friendly response from tool results using Cohere LLM",
+      "config": {
+        "model": "command-r-plus",
+        "temperature": 0.7,
+        "max_tokens": 1024
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "What action was performed"
+          },
+          "result": {
+            "type": "object",
+            "description": "Tool execution result"
+          },
+          "error": {
+            "type": "object",
+            "description": "Error if tool failed"
+          }
+        },
+        "required": ["action"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "response": {
+            "type": "string",
+            "description": "User-friendly response message"
+          },
+          "suggestedActions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional follow-up suggestions"
+          },
+          "error": { "$ref": "#/definitions/AgentError" }
+        },
+        "required": ["success", "response"]
+      }
+    }
+  },
+  "definitions": {
+    "ChatIntent": {
+      "type": "object",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "enum": ["add_task", "list_tasks", "update_task", "complete_task", "delete_task", "set_due_date", "get_task_dates", "unknown"]
+        },
+        "entities": {
+          "type": "object",
+          "properties": {
+            "task_id": { "type": ["integer", "null"] },
+            "title": { "type": ["string", "null"] },
+            "description": { "type": ["string", "null"] },
+            "status_filter": {
+              "type": ["string", "null"],
+              "enum": ["pending", "completed", "all", null]
+            },
+            "due_date": { "type": ["string", "null"] }
+          }
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "raw_message": { "type": "string" }
+      },
+      "required": ["intent", "entities", "confidence"]
+    },
+    "ChatError": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["network", "rate_limit", "llm_unavailable", "backend_error", "auth_expired", "intent_unclear", "task_not_found", "timeout"]
+        },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "retryAfter": { "type": "integer" }
+      },
+      "required": ["type", "message", "retryable"]
+    },
+    "AgentError": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" }
+      },
+      "required": ["code", "message"]
+    }
+  }
+}

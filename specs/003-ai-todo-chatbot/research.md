@@ -1,12 +1,135 @@
-# Research: AI Todo Chatbot
+# Research: AI Todo Chatbot with MCP Server
 
 **Feature**: 003-ai-todo-chatbot
 **Date**: 2026-02-03
-**Status**: Complete
+**Updated**: 2026-02-06
+**Status**: Complete (v2 - MCP Server Integration)
 
 ## Research Overview
 
-This document captures technology decisions, best practices research, and integration patterns for the AI Todo Chatbot implementation.
+This document captures technology decisions, best practices research, and integration patterns for the AI Todo Chatbot implementation with MCP (Model Context Protocol) Server.
+
+---
+
+## 0. MCP Server Integration (NEW - v2)
+
+### Decision
+Use `@modelcontextprotocol/sdk` (TypeScript) for MCP Server implementation as Next.js API route handlers.
+
+### Rationale
+- Official SDK from Anthropic/Model Context Protocol
+- TypeScript-native, integrates seamlessly with Next.js
+- Provides standardized tool definition patterns
+- JSON-RPC protocol for structured communication
+- Tool abstraction layer for backend operations
+
+### Alternatives Considered
+| Option | Pros | Cons | Rejected Because |
+|--------|------|------|------------------|
+| Python MCP SDK | Native Python | Separate service needed | Adds deployment complexity |
+| Custom REST wrapper | Full control | No MCP benefits | Loses tool abstraction |
+| Direct backend calls | Simpler | No MCP protocol | **Was v1** - upgrading to MCP |
+| MCP TypeScript SDK | Standard, typed | SDK dependency | **SELECTED** |
+
+### MCP Tool Registry Pattern
+
+```typescript
+// lib/mcp/server.ts
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+
+const mcpServer = new Server(
+  { name: "todo-mcp-server", version: "1.0.0" },
+  { capabilities: { tools: {} } }
+);
+
+// Register tools
+mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [
+    {
+      name: "add_task",
+      description: "Add a new task to the user's todo list",
+      inputSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Task title (required)" },
+          description: { type: "string", description: "Task description (optional)" },
+          due_date: { type: "string", description: "ISO date for due date (optional)" },
+        },
+        required: ["title"],
+      },
+    },
+    // ... other tools
+  ],
+}));
+
+// Handle tool calls
+mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  switch (name) {
+    case "add_task":
+      return await handleAddTask(args);
+    // ... other handlers
+  }
+});
+```
+
+### MCP Transport for Next.js
+
+Since Next.js API routes are HTTP-based (not stdio), we'll implement a custom HTTP transport:
+
+```typescript
+// app/api/mcp/route.ts
+export async function POST(request: Request) {
+  const body = await request.json();
+
+  // JSON-RPC request handling
+  if (body.method === "tools/list") {
+    return Response.json({
+      jsonrpc: "2.0",
+      id: body.id,
+      result: await mcpServer.listTools(),
+    });
+  }
+
+  if (body.method === "tools/call") {
+    const result = await mcpServer.callTool(body.params.name, body.params.arguments);
+    return Response.json({
+      jsonrpc: "2.0",
+      id: body.id,
+      result,
+    });
+  }
+}
+```
+
+### MCP Client Pattern
+
+```typescript
+// lib/mcp/client.ts
+class MCPClient {
+  constructor(private baseUrl: string, private jwtToken: string) {}
+
+  async callTool(name: string, args: Record<string, unknown>) {
+    const response = await fetch(`${this.baseUrl}/api/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.jwtToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: "tools/call",
+        params: { name, arguments: args },
+      }),
+    });
+
+    const result = await response.json();
+    return result.result;
+  }
+}
+```
 
 ---
 
@@ -318,12 +441,16 @@ function useChat(userId: string, jwt: string): UseChatReturn;
 
 | Topic | Decision | Confidence |
 |-------|----------|------------|
+| **MCP Server** | `@modelcontextprotocol/sdk` TypeScript | High |
+| **MCP Transport** | HTTP-based JSON-RPC in Next.js API | High |
 | Cohere Integration | Direct REST API | High |
-| Agent Pattern | Custom SDK adapter | High |
+| Agent Pattern | Custom SDK adapter + MCP Tool Executor | High |
 | Intent Classification | JSON prompt template | High |
 | Serverless Runtime | Standard API routes | High |
 | UI Components | Custom TailwindCSS | High |
 | Error Handling | Layered with retry | High |
 | State Management | useState hook | High |
+
+**v2 Update (2026-02-06)**: Added MCP Server integration with 6 tools (add_task, list_tasks, update_task, complete_task, delete_task, set_due_date). Agent architecture updated to include `mcp-tool-executor` agent.
 
 All NEEDS CLARIFICATION items resolved. Ready for Phase 1 design.

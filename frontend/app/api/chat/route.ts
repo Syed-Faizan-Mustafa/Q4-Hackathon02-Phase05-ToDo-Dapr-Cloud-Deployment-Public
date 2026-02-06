@@ -17,7 +17,8 @@ import {
   MAX_MESSAGE_LENGTH,
 } from '@/lib/agents/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use BACKEND_URL for server-side API calls (Hugging Face backend)
+const API_BASE_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 /**
  * Helper to get session using Better Auth's API

@@ -2,8 +2,63 @@
 
 **Feature Branch**: `003-ai-todo-chatbot`
 **Created**: 2026-02-03
-**Status**: Draft
-**Input**: AI Todo Chatbot with OpenAI Agent SDK + Cohere API integration for conversational task management
+**Updated**: 2026-02-06
+**Status**: Draft (v2 - MCP Server Integration)
+**Input**: AI Todo Chatbot with MCP Server + Multi-Agent Architecture for conversational task management
+
+---
+
+## Architecture Overview
+
+This chatbot follows a **Multi-Agent Architecture with MCP (Model Context Protocol) Server** for backend integration:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Frontend (Next.js)                           │
+│  ┌─────────────┐    ┌──────────────────┐    ┌───────────────────┐  │
+│  │ Chat Widget │───▶│  Chat API Route  │───▶│  MCP Client       │  │
+│  │ (React UI)  │    │  (/api/chat)     │    │  (Tool Invoker)   │  │
+│  └─────────────┘    └──────────────────┘    └─────────┬─────────┘  │
+│                                                        │            │
+└────────────────────────────────────────────────────────┼────────────┘
+                                                         │
+                              MCP Protocol (JSON-RPC)    │
+                                                         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     MCP Server (Python/FastAPI)                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                    MCP Tool Registry                         │   │
+│  │  ┌──────────┐ ┌───────────┐ ┌────────────┐ ┌─────────────┐  │   │
+│  │  │ add_task │ │ list_tasks│ │complete_task│ │ delete_task │  │   │
+│  │  └──────────┘ └───────────┘ └────────────┘ └─────────────┘  │   │
+│  │  ┌──────────────┐ ┌────────────────┐                        │   │
+│  │  │ update_task  │ │ set_due_date   │                        │   │
+│  │  └──────────────┘ └────────────────┘                        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                              │                                      │
+│                              ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │              Phase II Backend REST API                       │   │
+│  │              (Hugging Face Spaces)                           │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent Flow (Constitution VIII)
+
+```
+User Message → Orchestrator → Intent Analyzer → MCP Tool Executor → Response Composer → User
+                   │                │                   │                    │
+                   │                ▼                   ▼                    ▼
+                   │          Cohere LLM          MCP Server            Cohere LLM
+                   │          (intent parse)      (CRUD ops)            (response gen)
+                   │                                   │
+                   │                                   ▼
+                   │                          Phase II REST API
+                   │                          (Backend on HF)
+                   ▼
+              Final Response
+```
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -195,11 +250,44 @@ As an authenticated user, I want to set or update due dates for tasks through co
 - **FR-042**: System MUST provide suggestions when intent cannot be determined
 - **FR-043**: System MUST display friendly error message when LLM API is rate-limited or unavailable, and allow manual retry after 30-second cooldown
 
+**MCP Server Architecture**
+- **FR-044**: System MUST implement MCP Server using Official MCP SDK (`@modelcontextprotocol/sdk`)
+- **FR-045**: MCP Server MUST expose task CRUD operations as MCP tools (add_task, list_tasks, update_task, complete_task, delete_task, set_due_date)
+- **FR-046**: Each MCP tool MUST have a defined JSON schema for input parameters and return types
+- **FR-047**: MCP Server MUST communicate with Phase II Backend REST API for all data operations
+- **FR-048**: MCP Server MUST validate JWT tokens from authenticated users before executing tools
+- **FR-049**: MCP Server MUST return structured JSON responses that include success status, data, and error messages
+- **FR-050**: MCP Client in frontend MUST invoke MCP tools using JSON-RPC protocol
+- **FR-051**: System MUST log all MCP tool invocations for debugging (without sensitive data)
+
+**Multi-Agent Orchestration**
+- **FR-052**: System MUST implement `todo-orchestrator` as the ONLY entry point for all chat requests
+- **FR-053**: `todo-orchestrator` MUST delegate to `intent-analyzer` for natural language understanding
+- **FR-054**: `intent-analyzer` MUST use Cohere API (`command-r-plus`) for intent classification with temperature 0.3
+- **FR-055**: `intent-analyzer` MUST return structured JSON with intent type, entities, and confidence score
+- **FR-056**: `mcp-tool-executor` MUST invoke appropriate MCP tools based on parsed intent
+- **FR-057**: `mcp-tool-executor` MUST pass user's JWT token to MCP Server for authentication
+- **FR-058**: `response-composer` MUST use Cohere API with temperature 0.7 for natural language response generation
+- **FR-059**: `response-composer` MUST generate user-friendly confirmations based on MCP tool results
+- **FR-060**: All agents MUST be stateless - no in-memory conversation state storage
+- **FR-061**: Agent communication MUST use structured JSON for inter-agent data transfer
+
+**MCP Tool Definitions**
+- **FR-062**: `add_task` tool MUST accept: `title` (required), `description` (optional), `due_date` (optional)
+- **FR-063**: `list_tasks` tool MUST accept: `status_filter` (optional: pending/completed/all)
+- **FR-064**: `update_task` tool MUST accept: `task_id` (required), `title` (optional), `description` (optional)
+- **FR-065**: `complete_task` tool MUST accept: `task_id` (required)
+- **FR-066**: `delete_task` tool MUST accept: `task_id` (required)
+- **FR-067**: `set_due_date` tool MUST accept: `task_id` (required), `due_date` (required, ISO format)
+
 ### Key Entities
 
 - **Chat Message**: Represents a single message in the conversation with sender (user/assistant), content text, and timestamp. Messages exist only in the current session.
 - **Chat Intent**: Represents the parsed user intent (add_task, list_tasks, update_task, complete_task, delete_task, set_due_date, get_task_dates) with extracted entities (task_id, title, description, due_date, status_filter) and confidence score.
 - **Chat Session**: Represents the current chat window state including open/closed status, message history (session-only), and loading state.
+- **MCP Tool**: Represents a registered tool in the MCP Server with name, description, input JSON schema, and handler function. Each tool maps to a Phase II backend operation.
+- **MCP Tool Invocation**: Represents a single tool call with tool name, input parameters, execution result, and timing information for debugging.
+- **Agent**: Represents a stateless processing unit (orchestrator, intent-analyzer, mcp-tool-executor, response-composer) with defined input/output contracts and single responsibility.
 
 ## Success Criteria *(mandatory)*
 
@@ -234,6 +322,9 @@ As an authenticated user, I want to set or update due dates for tasks through co
 - Users are familiar with basic chatbot interactions (typing messages, reading responses)
 - Backend API endpoints follow the established REST patterns from Phase II
 - Conversation state does not need to persist across browser sessions
+- MCP SDK (`@modelcontextprotocol/sdk`) is available and compatible with Node.js 18+
+- MCP Server can be deployed alongside Next.js frontend or as separate service
+- JSON-RPC communication between MCP Client and Server is reliable
 
 ## Out of Scope
 
@@ -241,9 +332,12 @@ As an authenticated user, I want to set or update due dates for tasks through co
 - Image or file attachments in chat
 - Conversation history persistence across sessions
 - Custom training or fine-tuning of AI models
-- Direct database access (all operations through backend API)
+- Direct database access (all operations through MCP Server → Backend API)
 - New authentication system (uses existing Better Auth)
 - Admin dashboard or analytics for chatbot usage
 - Multi-language support (English only for this phase)
 - Offline functionality
 - Push notifications for chat
+- MCP Server hosting on separate infrastructure (co-located with frontend)
+- Custom MCP transport protocols (using standard JSON-RPC over HTTP)
+- MCP tool discovery/registry features beyond static tool definitions

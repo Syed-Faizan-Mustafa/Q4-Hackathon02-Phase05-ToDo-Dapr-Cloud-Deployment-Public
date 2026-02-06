@@ -1,7 +1,8 @@
-# Quickstart Guide: AI Todo Chatbot
+# Quickstart Guide: AI Todo Chatbot with MCP Server
 
 **Feature**: 003-ai-todo-chatbot
 **Date**: 2026-02-03
+**Updated**: 2026-02-06
 
 ## Prerequisites
 
@@ -10,6 +11,7 @@ Before starting development on this feature, ensure you have:
 1. **Phase II Todo App running** (frontend + backend)
 2. **Node.js 18+** installed
 3. **Cohere API key** (get one at https://dashboard.cohere.com/api-keys)
+4. **MCP SDK** (`@modelcontextprotocol/sdk`) for tool definitions
 
 ---
 
@@ -59,6 +61,15 @@ curl -X POST "https://api.cohere.ai/v1/chat" \
 
 ---
 
+## Install MCP SDK
+
+```bash
+cd frontend
+npm install @modelcontextprotocol/sdk
+```
+
+---
+
 ## Project Structure
 
 The chatbot feature adds these files to the existing frontend:
@@ -67,10 +78,12 @@ The chatbot feature adds these files to the existing frontend:
 frontend/
 ├── app/
 │   └── api/
-│       └── chat/
-│           └── route.ts          # NEW: Chat API endpoint
+│       ├── chat/
+│       │   └── route.ts          # Chat API endpoint
+│       └── mcp/
+│           └── route.ts          # NEW: MCP Server endpoint
 ├── components/
-│   └── chat/                     # NEW: All chat components
+│   └── chat/                     # All chat components
 │       ├── ChatWidget.tsx
 │       ├── ChatBubble.tsx
 │       ├── ChatWindow.tsx
@@ -79,17 +92,29 @@ frontend/
 │       ├── TypingIndicator.tsx
 │       └── index.ts
 ├── hooks/
-│   └── useChat.ts                # NEW: Chat state hook
+│   └── useChat.ts                # Chat state hook
 ├── lib/
-│   └── agents/                   # NEW: Agent implementations
+│   ├── mcp/                      # NEW: MCP Server & Client
+│   │   ├── server.ts             # MCP Server with tool registry
+│   │   ├── client.ts             # MCP Client for tool invocation
+│   │   ├── tools/                # MCP Tool definitions
+│   │   │   ├── add-task.ts
+│   │   │   ├── list-tasks.ts
+│   │   │   ├── update-task.ts
+│   │   │   ├── complete-task.ts
+│   │   │   ├── delete-task.ts
+│   │   │   └── set-due-date.ts
+│   │   └── types.ts
+│   └── agents/                   # Agent implementations
 │       ├── cohere-adapter.ts
 │       ├── orchestrator.ts
 │       ├── intent-analyzer.ts
-│       ├── tool-executor.ts
+│       ├── mcp-tool-executor.ts  # NEW: Uses MCP Client
 │       ├── response-composer.ts
 │       └── types.ts
 └── __tests__/
-    └── chat/                     # NEW: Chat tests
+    ├── mcp/                      # NEW: MCP tests
+    └── chat/                     # Chat tests
 ```
 
 ---
@@ -218,11 +243,43 @@ vercel --prod
 
 | File | Purpose |
 |------|---------|
-| `app/api/chat/route.ts` | Serverless API endpoint |
+| `app/api/chat/route.ts` | Chat API endpoint |
+| `app/api/mcp/route.ts` | MCP Server endpoint (NEW) |
+| `lib/mcp/server.ts` | MCP Tool registry (NEW) |
+| `lib/mcp/client.ts` | MCP Client for tool calls (NEW) |
+| `lib/agents/mcp-tool-executor.ts` | MCP Tool invocation agent (NEW) |
 | `components/chat/ChatWidget.tsx` | Main container component |
 | `hooks/useChat.ts` | State management |
 | `lib/agents/orchestrator.ts` | Agent coordination |
 | `lib/agents/cohere-adapter.ts` | Cohere API wrapper |
+
+---
+
+## MCP Tool Testing
+
+Test MCP tools via JSON-RPC:
+
+```bash
+# List available tools
+curl -X POST "http://localhost:3000/api/mcp" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+
+# Call add_task tool
+curl -X POST "http://localhost:3000/api/mcp" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "add_task",
+      "arguments": {"title": "Test task from MCP"}
+    }
+  }'
+```
 
 ---
 
@@ -231,5 +288,6 @@ vercel --prod
 - [spec.md](./spec.md) - Feature specification
 - [plan.md](./plan.md) - Implementation plan
 - [data-model.md](./data-model.md) - Type definitions
-- [contracts/chatbot-api.md](./contracts/chatbot-api.md) - API contract
+- [contracts/mcp-tools.json](./contracts/mcp-tools.json) - MCP Tool schemas (NEW)
+- [contracts/agent-contracts.json](./contracts/agent-contracts.json) - Agent I/O contracts (NEW)
 - [Constitution](../../.specify/memory/constitution.md) - Project principles

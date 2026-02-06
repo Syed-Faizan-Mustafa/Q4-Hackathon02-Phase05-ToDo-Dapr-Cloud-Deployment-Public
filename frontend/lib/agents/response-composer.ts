@@ -20,49 +20,48 @@ import {
 } from './types';
 
 /**
- * System prompt for response composition
+ * System prompt for response composition (Bilingual: English + Urdu)
  */
-const RESPONSE_COMPOSER_PREAMBLE = `You are a friendly, helpful assistant for a todo task management app. Your job is to compose natural, conversational responses to users.
+const RESPONSE_COMPOSER_PREAMBLE = `You are a friendly, helpful bilingual assistant for a todo task management app. Your job is to compose natural, conversational responses in BOTH English AND Urdu (Roman Urdu).
 
 GUIDELINES:
 - Be concise but friendly (1-3 sentences max)
+- ALWAYS provide response in BOTH languages: English first, then Urdu
 - Use casual, supportive language
 - Include relevant details from the action result
-- For task lists, format them clearly with numbers and status indicators
-- Offer helpful follow-up suggestions when appropriate
 - Never be verbose or overly formal
 
-RESPONSE FORMATS:
+RESPONSE FORMAT (always use this pattern):
+"English message / Urdu message"
 
-For task creation:
-"Got it! I've added '[task title]' to your list. ✓"
+RESPONSE EXAMPLES:
 
-For task listing:
-"Here are your [pending/completed/all] tasks:
+Task creation:
+"Great! '[task title]' has been added. ✓ / Zabardast! '[task title]' add ho gaya. ✓"
+
+Task listing:
+"Here are your tasks / Yeh rahi aapki tasks:
 1. [title] [✓ if completed]
 2. [title]
 ..."
 
-For task completion:
-"Nice work! '[task title]' is marked as done. ✓"
+Task completion:
+"Congratulations! '[task title]' is complete. ✓ / Mubarak! '[task title]' complete ho gaya. ✓"
 
-For task updates:
-"Updated! '[task title]' has been changed."
+Task updates:
+"Done! '[task title]' has been updated. / Done! '[task title]' update ho gaya."
 
-For task deletion:
-"Done! I've removed '[task title]' from your list."
+Task deletion:
+"Okay! '[task title]' has been deleted. / Theek hai! '[task title]' delete ho gaya."
 
-For due dates:
-"Set! '[task title]' is due [date]."
-
-For errors:
-Be apologetic but helpful, suggest what the user can try instead.
+Due dates:
+"Set! '[task title]' is due [date]. / Set! '[task title]' [date] tak due hai."
 
 IMPORTANT:
-- Keep responses SHORT and natural
-- Use ✓ sparingly for confirmations
-- Never mention technical details or APIs
-- If suggesting actions, keep them simple`;
+- Keep responses SHORT and friendly
+- Use ✓ for confirmations
+- ALWAYS include BOTH English AND Urdu
+- Never mention technical details`;
 
 /**
  * Composes a user-friendly response based on the tool execution result
@@ -119,8 +118,8 @@ function getTemplateResponse(
     case 'create':
       if (result.task) {
         return {
-          response: `Got it! I've added "${result.task.title}" to your list. ✓`,
-          suggestedActions: ['Show my tasks', 'Add another task'],
+          response: `Great! "${result.task.title}" has been added. ✓ / Zabardast! "${result.task.title}" add ho gaya. ✓`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao', 'Add more / Aur add karo'],
         };
       }
       break;
@@ -128,8 +127,8 @@ function getTemplateResponse(
     case 'complete':
       if (result.task) {
         return {
-          response: `Nice work! "${result.task.title}" is marked as done. ✓`,
-          suggestedActions: ['Show pending tasks', 'Show completed tasks'],
+          response: `Congratulations! "${result.task.title}" is complete. ✓ / Mubarak! "${result.task.title}" complete ho gaya. ✓`,
+          suggestedActions: ['Show pending / Pending dikhao', 'Show completed / Completed dikhao'],
         };
       }
       break;
@@ -137,8 +136,8 @@ function getTemplateResponse(
     case 'delete':
       if (result.task) {
         return {
-          response: `Done! I've removed "${result.task.title}" from your list.`,
-          suggestedActions: ['Show my tasks'],
+          response: `Okay! "${result.task.title}" has been deleted. / Theek hai! "${result.task.title}" delete ho gaya.`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
         };
       }
       break;
@@ -146,38 +145,19 @@ function getTemplateResponse(
     case 'update':
       if (result.task) {
         return {
-          response: `Updated! "${result.task.title}" has been changed. ✓`,
-          suggestedActions: ['Show my tasks'],
+          response: `Done! "${result.task.title}" has been updated. ✓ / Done! "${result.task.title}" update ho gaya. ✓`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
         };
       }
       break;
 
     case 'set_due_date':
-      if (result.task && result.task.due_date) {
-        const formattedDate = formatDisplayDate(result.task.due_date);
-        return {
-          response: `Set! "${result.task.title}" is due ${formattedDate}. ✓`,
-          suggestedActions: ['Show my tasks', 'What tasks are due?'],
-        };
-      }
-      break;
-
     case 'get_dates':
-      if (result.task) {
-        if (result.task.due_date) {
-          const formattedDate = formatDisplayDate(result.task.due_date);
-          return {
-            response: `"${result.task.title}" is due ${formattedDate}.`,
-            suggestedActions: ['Show pending tasks'],
-          };
-        } else {
-          return {
-            response: `"${result.task.title}" doesn't have a due date set.`,
-            suggestedActions: ['Set a due date'],
-          };
-        }
-      }
-      break;
+      // Due dates are not supported in the current backend API
+      return {
+        response: `Due dates feature is not available. / Due date feature abhi available nahi hai.`,
+        suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+      };
 
     case 'list':
       return formatTaskList(result.tasks || [], intent);
@@ -197,18 +177,18 @@ function formatTaskList(
     const filter = intent.entities.status_filter;
     if (filter === 'pending') {
       return {
-        response: "You're all caught up! No pending tasks. 🎉",
-        suggestedActions: ['Add a task', 'Show completed tasks'],
+        response: "Awesome! No pending tasks. All done! 🎉 / Waah! Koi pending task nahi hai. Sab kaam ho gaya! 🎉",
+        suggestedActions: ['Add task / Task add karo', 'Show completed / Completed dikhao'],
       };
     } else if (filter === 'completed') {
       return {
-        response: "No completed tasks yet. Time to get things done!",
-        suggestedActions: ['Show pending tasks', 'Add a task'],
+        response: "No tasks completed yet. Let's get some work done! / Abhi tak koi task complete nahi hua. Chalo kuch kaam karte hain!",
+        suggestedActions: ['Show pending / Pending dikhao', 'Add task / Task add karo'],
       };
     }
     return {
-      response: "Your task list is empty. Let's add some tasks!",
-      suggestedActions: ['Add a task'],
+      response: "Your task list is empty. Let's add some tasks! / Aapki task list khaali hai. Chalo kuch tasks add karte hain!",
+      suggestedActions: ['Add task / Task add karo'],
     };
   }
 
@@ -218,27 +198,28 @@ function formatTaskList(
       ? 'pending'
       : filter === 'completed'
         ? 'completed'
-        : '';
+        : 'all / sari';
 
   // Limit displayed tasks
   const displayTasks = tasks.slice(0, MAX_TASKS_DISPLAY);
   const hasMore = tasks.length > MAX_TASKS_DISPLAY;
 
-  let response = `Here are your ${filterLabel} tasks:\n`;
+  let response = `Here are your ${filterLabel} tasks / Yeh rahi aapki ${filterLabel} tasks:\n`;
 
   displayTasks.forEach((task, index) => {
-    const status = task.is_completed ? '✓' : '○';
-    const dueInfo = task.due_date ? ` (due ${formatDisplayDate(task.due_date)})` : '';
-    response += `${index + 1}. ${status} ${task.title}${dueInfo}\n`;
+    const status = task.completed ? '✓' : '○';
+    // Note: Backend does not support due_date field
+    // Use index+1 for display since task IDs are UUIDs
+    response += `${index + 1}. ${status} ${task.title}\n`;
   });
 
   if (hasMore) {
-    response += `\n...and ${tasks.length - MAX_TASKS_DISPLAY} more. Say "show all tasks" to see everything.`;
+    response += `\n...and ${tasks.length - MAX_TASKS_DISPLAY} more. / ...aur ${tasks.length - MAX_TASKS_DISPLAY} zyada hain.`;
   }
 
   return {
     response: response.trim(),
-    suggestedActions: ['Mark a task done', 'Add a task'],
+    suggestedActions: ['Complete task / Task complete karo', 'Add task / Task add karo'],
   };
 }
 
@@ -271,10 +252,10 @@ function getFallbackResponse(
     };
   }
 
-  // Generic fallback
+  // Generic fallback (bilingual)
   return {
-    response: 'Done! Your request has been processed.',
-    suggestedActions: ['Show my tasks'],
+    response: 'Done! Your request has been processed. / Ho gaya! Aapki request process ho gayi.',
+    suggestedActions: ['Show my tasks / Meri tasks dikhao'],
   };
 }
 
@@ -302,7 +283,7 @@ function getSuggestedActions(intent: ChatIntent): string[] {
 }
 
 /**
- * Composes an error response
+ * Composes an error response (Bilingual: English + Urdu)
  */
 export function composeErrorResponse(
   errorCode: string,
@@ -311,73 +292,108 @@ export function composeErrorResponse(
   switch (errorCode) {
     case 'task_not_found':
       return {
-        response: "I couldn't find that task. It may have been deleted. Try \"show my tasks\" to see what's available.",
-        suggestedActions: ['Show my tasks'],
+        response: "Task not found. It may have been deleted. Try 'show my tasks' to see what's available. / Yeh task nahi mila. Shayad delete ho gaya. 'meri tasks dikhao' bol kar dekho kya available hai.",
+        suggestedActions: ['Show my tasks / Meri tasks dikhao'],
       };
 
     case 'ambiguous_task':
       return {
         response: errorMessage,
-        suggestedActions: ['Show my tasks'],
+        suggestedActions: ['Show my tasks / Meri tasks dikhao'],
       };
 
     case 'auth_expired':
       return {
-        response: 'Your session has expired. Please refresh the page and sign in again.',
+        response: 'Your session has expired. Please refresh the page and login again. / Aapka session expire ho gaya. Please page refresh karke dobara login karo.',
         suggestedActions: [],
       };
 
     case 'backend_error':
       return {
-        response: "I'm having trouble connecting to the task service. Please try again in a moment.",
-        suggestedActions: ['Try again'],
+        response: "Connection issue. Please try again later. / Abhi connection mein problem hai. Thodi der baad try karo.",
+        suggestedActions: ['Try again / Dobara try karo'],
       };
 
     case 'rate_limit':
       return {
-        response: "I'm getting too many requests right now. Please wait a moment before trying again.",
+        response: "Too many requests. Please wait a moment and try again. / Bohat zyada requests aa rahi hain. Thoda ruko phir try karo.",
         suggestedActions: [],
       };
 
     case 'intent_unclear':
       return {
-        response: "I'm not sure what you'd like me to do. Try saying things like:\n• \"Add buy groceries\"\n• \"Show my tasks\"\n• \"Mark task 1 done\"",
-        suggestedActions: ['Add a task', 'Show my tasks'],
+        response: "I didn't understand. Try saying:\n• 'Add gym daily' / 'Gym daily add karo'\n• 'Show my tasks' / 'Meri tasks dikhao'\n• 'Complete task 1' / 'Task 1 complete karo'\n\nType 'help' to see what I can do. / 'help' likh kar dekho main kya kya kar sakta hoon.",
+        suggestedActions: ['Add task / Task add karo', 'Show tasks / Tasks dikhao', 'help'],
       };
 
     default:
       return {
-        response: 'Something went wrong. Please try again.',
-        suggestedActions: ['Try again'],
+        response: 'Something went wrong. Please try again. / Kuch gadbad ho gayi. Dobara try karo.',
+        suggestedActions: ['Try again / Dobara try karo'],
       };
   }
 }
 
 /**
  * Formats a date string for display
+ * Handles various date formats and returns a user-friendly string
  */
 function formatDisplayDate(dateStr: string): string {
   try {
+    // Handle null, undefined, or empty strings
+    if (!dateStr || dateStr === 'null' || dateStr === 'undefined') {
+      return 'no date set';
+    }
+
     const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Check if it's today or tomorrow
-    if (date.toDateString() === today.toDateString()) {
-      return 'today';
-    }
-    if (date.toDateString() === tomorrow.toDateString()) {
-      return 'tomorrow';
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      // Try parsing as ISO string without timezone
+      const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        const [, year, month, day] = isoMatch;
+        const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        if (!isNaN(parsedDate.getTime())) {
+          return formatValidDate(parsedDate);
+        }
+      }
+      // Return original string if parsing fails
+      return dateStr;
     }
 
-    // Otherwise, format nicely
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatValidDate(date);
   } catch {
-    return dateStr;
+    return dateStr || 'no date';
   }
+}
+
+/**
+ * Formats a valid Date object for display
+ */
+function formatValidDate(date: Date): string {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Reset time parts for comparison
+  today.setHours(0, 0, 0, 0);
+  tomorrow.setHours(0, 0, 0, 0);
+  const compareDate = new Date(date);
+  compareDate.setHours(0, 0, 0, 0);
+
+  // Check if it's today or tomorrow
+  if (compareDate.getTime() === today.getTime()) {
+    return 'today / aaj';
+  }
+  if (compareDate.getTime() === tomorrow.getTime()) {
+    return 'tomorrow / kal';
+  }
+
+  // Otherwise, format nicely
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }

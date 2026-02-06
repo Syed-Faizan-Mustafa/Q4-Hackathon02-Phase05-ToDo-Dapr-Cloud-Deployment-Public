@@ -15,5 +15,6 @@ export { cohereChat, validateCohereConfig } from './cohere-adapter';
 // Agents
 export { analyzeIntent, isConfidentIntent } from './intent-analyzer';
 export { executeIntent } from './tool-executor';
+export { executeMCPIntent } from './mcp-tool-executor';
 export { composeResponse, composeErrorResponse } from './response-composer';
 export { orchestrate } from './orchestrator';

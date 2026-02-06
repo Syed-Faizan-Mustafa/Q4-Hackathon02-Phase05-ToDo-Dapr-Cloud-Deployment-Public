@@ -212,6 +212,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 ## Active Technologies
 - TypeScript 5.x (Frontend), Python 3.11+ (Agent Logic) + Next.js 14+, OpenAI Agent SDK patterns, Cohere API, TailwindCSS (003-ai-todo-chatbot)
 - N/A (stateless - all data via Phase II backend API) (003-ai-todo-chatbot)
+- TypeScript 5.x (Frontend/MCP), Python 3.11 (Backend reference) (003-ai-todo-chatbot)
+- N/A (uses Phase II PostgreSQL via REST API) (003-ai-todo-chatbot)
 
 ## Recent Changes
 - 003-ai-todo-chatbot: Added TypeScript 5.x (Frontend), Python 3.11+ (Agent Logic) + Next.js 14+, OpenAI Agent SDK patterns, Cohere API, TailwindCSS

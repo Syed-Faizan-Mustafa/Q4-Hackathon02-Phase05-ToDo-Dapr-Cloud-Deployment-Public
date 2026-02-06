@@ -1,12 +1,150 @@
-# Data Model: AI Todo Chatbot
+# Data Model: AI Todo Chatbot with MCP Server
 
 **Feature**: 003-ai-todo-chatbot
 **Date**: 2026-02-03
-**Status**: Complete
+**Updated**: 2026-02-06
+**Status**: Complete (v2 - MCP Server Integration)
 
 ## Overview
 
-This document defines the TypeScript interfaces and types for the AI Todo Chatbot feature. The chatbot is stateless (no database), so all types represent in-memory/session data structures.
+This document defines the TypeScript interfaces and types for the AI Todo Chatbot feature with MCP (Model Context Protocol) Server integration. The chatbot is stateless (no database), so all types represent in-memory/session data structures.
+
+---
+
+## MCP Types (NEW - v2)
+
+### MCPTool
+
+Represents a registered MCP tool.
+
+```typescript
+interface MCPTool {
+  name: string;                  // Tool identifier (e.g., "add_task")
+  description: string;           // Human-readable description
+  inputSchema: JSONSchema;       // JSON Schema for input validation
+}
+
+interface JSONSchema {
+  type: "object";
+  properties: Record<string, PropertySchema>;
+  required?: string[];
+}
+
+interface PropertySchema {
+  type: "string" | "number" | "boolean";
+  description: string;
+  enum?: string[];               // For constrained values
+}
+```
+
+---
+
+### MCPToolInvocation
+
+Represents a single MCP tool call.
+
+```typescript
+interface MCPToolInvocation {
+  id: string;                    // Unique invocation ID
+  toolName: string;              // Name of tool being called
+  arguments: Record<string, unknown>; // Input parameters
+  timestamp: Date;               // When invocation started
+  duration?: number;             // Execution time in ms
+  result?: MCPToolResult;        // Result after execution
+}
+
+interface MCPToolResult {
+  success: boolean;
+  content?: unknown;             // Tool-specific result data
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+```
+
+---
+
+### MCP JSON-RPC Types
+
+```typescript
+// JSON-RPC Request
+interface MCPRequest {
+  jsonrpc: "2.0";
+  id: number | string;
+  method: "tools/list" | "tools/call";
+  params?: {
+    name?: string;               // Tool name for tools/call
+    arguments?: Record<string, unknown>;
+  };
+}
+
+// JSON-RPC Response
+interface MCPResponse {
+  jsonrpc: "2.0";
+  id: number | string;
+  result?: unknown;
+  error?: {
+    code: number;
+    message: string;
+    data?: unknown;
+  };
+}
+```
+
+---
+
+### MCP Tool Input Schemas
+
+```typescript
+// add_task tool
+interface AddTaskInput {
+  title: string;                 // Required
+  description?: string;
+  due_date?: string;             // ISO date
+}
+
+// list_tasks tool
+interface ListTasksInput {
+  status_filter?: "pending" | "completed" | "all";
+}
+
+// update_task tool
+interface UpdateTaskInput {
+  task_id: number;               // Required
+  title?: string;
+  description?: string;
+}
+
+// complete_task tool
+interface CompleteTaskInput {
+  task_id: number;               // Required
+}
+
+// delete_task tool
+interface DeleteTaskInput {
+  task_id: number;               // Required
+}
+
+// set_due_date tool
+interface SetDueDateInput {
+  task_id: number;               // Required
+  due_date: string;              // Required, ISO date
+}
+```
+
+---
+
+### MCPContext
+
+Context passed to MCP tool handlers.
+
+```typescript
+interface MCPContext {
+  userId: string;                // Authenticated user ID
+  jwtToken: string;              // JWT for backend auth
+  backendUrl: string;            // Phase II API URL
+}
 
 ---
 

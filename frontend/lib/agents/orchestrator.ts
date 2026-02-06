@@ -1,14 +1,15 @@
 /**
  * Todo Orchestrator Agent
  * Feature: 003-ai-todo-chatbot
- * Task: T007
+ * Task: T007, T012
  *
  * Main orchestration agent that coordinates the intent analyzer,
- * tool executor, and response composer agents.
+ * MCP tool executor, and response composer agents.
+ * Implements FR-052, FR-053 from specification.
  */
 
 import { analyzeIntent, isConfidentIntent } from './intent-analyzer';
-import { executeIntent } from './tool-executor';
+import { executeMCPIntent } from './mcp-tool-executor';
 import { composeResponse, composeErrorResponse } from './response-composer';
 import {
   AgentContext,
@@ -16,6 +17,7 @@ import {
   ChatError,
   MIN_CONFIDENCE_THRESHOLD,
   REQUEST_TIMEOUT_MS,
+  HELP_MESSAGE,
 } from './types';
 
 /**
@@ -35,26 +37,41 @@ export async function orchestrate(
 
     if (!intentResult.success || !intentResult.data) {
       return {
-        response: "I'm having trouble understanding your request. Please try again.",
+        response: "I'm having trouble understanding your request. Please try again. / Mujhe aapki request samajhne mein problem ho rahi hai. Dobara try karein.",
         error: createError('llm_unavailable', intentResult.error?.message || 'Intent analysis failed'),
       };
     }
 
     const { intent } = intentResult.data;
 
-    // Step 2: Check intent confidence
+    // Step 2: Handle special intents (help, greeting) without MCP
+    if (intent.intent === 'help') {
+      return {
+        response: HELP_MESSAGE,
+        intent,
+      };
+    }
+
+    if (intent.intent === 'greeting') {
+      return {
+        response: 'Hello! / Assalam o Alaikum! I\'m your Todo Assistant. How can I help you? / Batao kya madad kar sakta hoon? Type "help" to see what I can do. / "help" likh kar dekho main kya kar sakta hoon.',
+        intent,
+      };
+    }
+
+    // Step 3: Check intent confidence
     if (!isConfidentIntent(intent) || intent.intent === 'unknown') {
       const errorResponse = composeErrorResponse('intent_unclear', '');
       return {
-        response: errorResponse.response,
+        response: "I didn't understand. Would you like to add, list, complete, update, delete tasks or set a due date? Type 'help' to see what I can do. / Mujhe samajh nahi aaya. Kya aap task add, list, complete, update, delete ya due date set karna chahte hain? 'help' likh kar dekho main kya kar sakta hoon.",
         intent,
         error: createError('intent_unclear', 'Could not determine intent'),
       };
     }
 
-    // Step 3: Execute the intent via tool executor
+    // Step 3: Execute the intent via MCP tool executor (FR-056)
     const executionResult = await withTimeout(
-      executeIntent(context, intent),
+      executeMCPIntent(context, intent),
       REQUEST_TIMEOUT_MS,
       'Task operation timed out'
     );
@@ -93,7 +110,7 @@ export async function orchestrate(
     // Handle timeout errors
     if (error instanceof Error && error.message.includes('timed out')) {
       return {
-        response: 'The request took too long. Please try again.',
+        response: 'The request took too long. Please try again. / Request mein bohat time lag gaya. Dobara try karein.',
         error: createError('timeout', error.message, true),
       };
     }
@@ -109,7 +126,7 @@ export async function orchestrate(
 
     // Generic error fallback
     return {
-      response: 'Something went wrong. Please try again.',
+      response: 'Something went wrong. Please try again. / Kuch gadbad ho gayi. Dobara try karein.',
       error: createError('backend_error', 'An unexpected error occurred', true),
     };
   }
