@@ -68,7 +68,7 @@ export async function setDueDateHandler(
 
   try {
     // Use the backend URL from environment (same as /api/tasks route)
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
     // First, get the current task to preserve existing description
     const getResponse = await fetch(

@@ -1,0 +1,91 @@
+# Todo AI Chatbot - Helm Values
+# Local Minikube deployment configuration
+
+# ============================================================
+# Frontend (Next.js 14)
+# ============================================================
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: todo-frontend
+    tag: latest
+    pullPolicy: Never  # Local images loaded into Minikube
+
+  service:
+    type: NodePort
+    port: 3000
+    nodePort: 30000
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Non-sensitive environment variables
+  env:
+    NEXT_PUBLIC_API_URL: "http://localhost:30001"
+    NEXT_PUBLIC_AUTH_URL: "http://localhost:30000"
+    COHERE_MODEL: "command-a-03-2025"
+
+  # Sensitive environment variables (stored in K8s Secret)
+  # Override these in values-secrets.yaml (gitignored)
+  secrets:
+    DATABASE_URL: "CHANGE_ME"
+    DIRECT_URL: "CHANGE_ME"
+    BETTER_AUTH_SECRET: "CHANGE_ME"
+    COHERE_API_KEY: "CHANGE_ME"
+
+# ============================================================
+# Backend (FastAPI + Python 3.11)
+# ============================================================
+backend:
+  replicaCount: 1
+
+  image:
+    repository: todo-backend
+    tag: latest
+    pullPolicy: Never  # Local images loaded into Minikube
+
+  service:
+    type: NodePort
+    port: 8000
+    nodePort: 30001
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Non-sensitive environment variables
+  env:
+    HOST: "0.0.0.0"
+    PORT: "8000"
+    FRONTEND_URL: "http://localhost:30000"
+    RATE_LIMIT_PER_MINUTE: "100"
+    JWT_ALGORITHM: "RS256"
+    DEBUG: "false"
+
+  # Sensitive environment variables (stored in K8s Secret)
+  # Override these in values-secrets.yaml (gitignored)
+  secrets:
+    DATABASE_URL: "CHANGE_ME"
+    JWT_PUBLIC_KEY: "CHANGE_ME"
+
+# ============================================================
+# Shared Settings
+# ============================================================
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+nameOverride: ""
+fullnameOverride: ""

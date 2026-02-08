@@ -19,6 +19,9 @@ coverage/
 .env.test.local
 .env.production.local
 
+# Helm secrets
+values-secrets.yaml
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

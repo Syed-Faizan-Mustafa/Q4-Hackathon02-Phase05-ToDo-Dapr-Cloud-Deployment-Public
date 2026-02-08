@@ -1,0 +1,27 @@
+Todo AI Chatbot deployed successfully!
+
+=== Access the Application ===
+
+1. Load Docker images into Minikube (if not already done):
+
+   minikube image load todo-frontend:latest
+   minikube image load todo-backend:latest
+
+2. Get the Frontend URL:
+
+   minikube service {{ include "todo-ai-chatbot.frontend.fullname" . }} --url
+
+3. Get the Backend API URL:
+
+   minikube service {{ include "todo-ai-chatbot.backend.fullname" . }} --url
+
+4. Or use port-forwarding for localhost access:
+
+   kubectl port-forward svc/{{ include "todo-ai-chatbot.frontend.fullname" . }} 3000:{{ .Values.frontend.service.port }} &
+   kubectl port-forward svc/{{ include "todo-ai-chatbot.backend.fullname" . }} 8000:{{ .Values.backend.service.port }} &
+
+   Then visit: http://localhost:3000
+
+=== Verify Pods ===
+
+   kubectl get pods -l "app.kubernetes.io/instance={{ .Release.Name }}"

@@ -48,7 +48,7 @@ export async function listTasksHandler(
 
     const queryString = params.toString();
     // Use the backend URL from environment (same as /api/tasks route)
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const endpoint = `${backendUrl}/api/v1/tasks${queryString ? `?${queryString}` : ''}`;
 
     console.log('[MCP list_tasks] Fetching from:', endpoint);
