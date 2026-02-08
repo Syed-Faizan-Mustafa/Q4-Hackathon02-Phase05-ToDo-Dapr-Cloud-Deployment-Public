@@ -137,6 +137,179 @@ function isObviousAddTaskIntent(message: string): boolean {
 }
 
 /**
+ * Pre-check for clear complete_task intent
+ */
+function isObviousCompleteTaskIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const completePatterns = [
+    /^complete\s+/i,
+    /^done\s+/i,
+    /^finish\s+/i,
+    /^mark\s+(as\s+)?(done|complete|finished)/i,
+    /\s+complete\s*(kar|karo|kardo|karein|karna|kiya)?$/i,
+    /\s+done\s*(kar|karo|kardo|karein|karna|kiya|hai)?$/i,
+    /^(ho\s+gaya|hogaya|mukammal)/i,
+    /complete\s+(kar|karo|kardo)/i,
+    /done\s+(kar|karo|kardo)/i,
+  ];
+
+  return completePatterns.some(pattern => pattern.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear update_task intent
+ */
+function isObviousUpdateTaskIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const updatePatterns = [
+    /^update\s+/i,
+    /^edit\s+/i,
+    /^change\s+/i,
+    /^modify\s+/i,
+    /^rename\s+/i,
+    /\s+update\s*(kar|karo|kardo|karein|karna)?$/i,
+    /\s+edit\s*(kar|karo|kardo|karein|karna)?$/i,
+    /(naam|title|name)\s+(badal|change)/i,
+    /update\s+(kar|karo|kardo)/i,
+    /badal\s*(kar|karo|kardo|do)/i,
+  ];
+
+  return updatePatterns.some(pattern => pattern.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear delete_task intent
+ */
+function isObviousDeleteTaskIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const deletePatterns = [
+    /^delete\s+/i,
+    /^remove\s+/i,
+    /^hata\s+/i,
+    /\s+delete\s*(kar|karo|kardo|karein|karna)?$/i,
+    /\s+remove\s*(kar|karo|kardo|karein|karna)?$/i,
+    /delete\s+(kar|karo|kardo)/i,
+    /hata\s*(kar|karo|kardo|do|dey)/i,
+    /nikal\s*(kar|karo|kardo|do|dey)/i,
+  ];
+
+  return deletePatterns.some(pattern => pattern.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear set_due_date intent
+ */
+function isObviousSetDueDateIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const dueDatePatterns = [
+    /^set\s+(due\s+)?date/i,
+    /^due\s+date\s+set/i,
+    /\s+due\s+(kal|tomorrow|today|aaj|parso)/i,
+    /\s+(kal|tomorrow|today|aaj|parso)\s+tak/i,
+    /\s+deadline/i,
+    /due\s+(kar|karo|kardo|set)/i,
+  ];
+
+  return dueDatePatterns.some(pattern => pattern.test(lowerMessage));
+}
+
+/**
+ * Extract task reference and due date for set_due_date intent
+ */
+function extractDueDateDetails(message: string): IntentEntities {
+  let title: string | null = null;
+  let dueDate: string | null = null;
+
+  const lowerMessage = message.toLowerCase();
+
+  // Extract due date
+  if (lowerMessage.includes('kal') || lowerMessage.includes('tomorrow')) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dueDate = formatDateToISO(tomorrow);
+  } else if (lowerMessage.includes('aaj') || lowerMessage.includes('today')) {
+    dueDate = formatDateToISO(new Date());
+  } else if (lowerMessage.includes('parso') || lowerMessage.includes('day after tomorrow')) {
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    dueDate = formatDateToISO(dayAfter);
+  }
+
+  // Check for explicit date format
+  const dateMatch = message.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (dateMatch) {
+    const [, day, month, year] = dateMatch;
+    dueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  // Extract task title (remove date-related words)
+  let cleanedMessage = message
+    .replace(/^set\s+(due\s+)?date\s*/i, '')
+    .replace(/\s*(kal|tomorrow|today|aaj|parso|due|deadline|tak)\s*/gi, ' ')
+    .replace(/\s*(kar|karo|kardo|set)\s*/gi, ' ')
+    .replace(/^(for|of|task)\s*/i, '')
+    .replace(/\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/g, '')
+    .trim();
+
+  if (cleanedMessage) {
+    title = cleanedMessage;
+  }
+
+  return {
+    task_id: null,
+    title,
+    description: null,
+    status_filter: null,
+    due_date: dueDate,
+  };
+}
+
+/**
+ * Extract task title/reference from complete/update/delete commands
+ */
+function extractTaskReference(message: string, intentType: string): IntentEntities {
+  let cleanedMessage = message;
+
+  // Remove command prefixes based on intent
+  if (intentType === 'complete_task') {
+    cleanedMessage = message
+      .replace(/^(complete|done|finish|mark\s+(as\s+)?(done|complete|finished))\s*/i, '')
+      .replace(/\s*(complete|done|finish)\s*(kar|karo|kardo|karein|karna|kiya|hai)?$/i, '')
+      .replace(/^(ho\s+gaya|hogaya|mukammal)\s*/i, '')
+      .replace(/^task\s*/i, '')
+      .trim();
+  } else if (intentType === 'update_task') {
+    cleanedMessage = message
+      .replace(/^(update|edit|change|modify|rename)\s*/i, '')
+      .replace(/\s*(update|edit|change)\s*(kar|karo|kardo|karein|karna)?$/i, '')
+      .replace(/^task\s*/i, '')
+      .trim();
+  } else if (intentType === 'delete_task') {
+    cleanedMessage = message
+      .replace(/^(delete|remove|hata)\s*/i, '')
+      .replace(/\s*(delete|remove)\s*(kar|karo|kardo|karein|karna)?$/i, '')
+      .replace(/\s*(hata|nikal)\s*(kar|karo|kardo|do|dey)?$/i, '')
+      .replace(/^task\s*/i, '')
+      .trim();
+  }
+
+  // The remaining text is the task title/reference
+  const title = cleanedMessage.trim();
+
+  return {
+    task_id: null,
+    title: title || null,
+    description: null,
+    status_filter: null,
+    due_date: null,
+  };
+}
+
+/**
  * Extracts task details from a message for add_task intent
  */
 function extractAddTaskDetails(message: string): IntentEntities {
@@ -207,6 +380,74 @@ export async function analyzeIntent(
         data: {
           intent: {
             intent: 'add_task',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious complete_task intent
+    if (isObviousCompleteTaskIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious complete_task intent via pattern matching');
+      const entities = extractTaskReference(context.message, 'complete_task');
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'complete_task',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious update_task intent
+    if (isObviousUpdateTaskIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious update_task intent via pattern matching');
+      const entities = extractTaskReference(context.message, 'update_task');
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'update_task',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious delete_task intent
+    if (isObviousDeleteTaskIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious delete_task intent via pattern matching');
+      const entities = extractTaskReference(context.message, 'delete_task');
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'delete_task',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious set_due_date intent
+    if (isObviousSetDueDateIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious set_due_date intent via pattern matching');
+      const entities = extractDueDateDetails(context.message);
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'set_due_date',
             entities,
             confidence: 0.95,
             raw_message: context.message,
