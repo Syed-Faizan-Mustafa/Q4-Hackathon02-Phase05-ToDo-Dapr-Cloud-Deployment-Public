@@ -59,7 +59,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
     // Authenticate the request
     const session = await getSession(request);
 
+    // Debug logging
+    console.log('[Chat API] Session check:', {
+      hasSession: !!session,
+      hasSessionToken: !!session?.session?.token,
+      hasUserId: !!session?.user?.id,
+      userId: session?.user?.id,
+    });
+
     if (!session?.session?.token || !session?.user?.id) {
+      console.log('[Chat API] Auth failed - no valid session');
       return NextResponse.json(
         {
           success: false,
