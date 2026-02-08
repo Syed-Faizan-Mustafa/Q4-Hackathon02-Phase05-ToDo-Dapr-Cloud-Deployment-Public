@@ -79,10 +79,13 @@ export async function updateTaskHandler(
   }
 
   try {
+    // Use the backend URL from environment (same as /api/tasks route)
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
+
     // Backend API: /api/v1/tasks - user is determined from JWT token
     // Use PATCH for partial updates
     const response = await fetch(
-      `${context.backendUrl}/api/v1/tasks/${task_id}`,
+      `${backendUrl}/api/v1/tasks/${task_id}`,
       {
         method: 'PATCH',
         headers: {

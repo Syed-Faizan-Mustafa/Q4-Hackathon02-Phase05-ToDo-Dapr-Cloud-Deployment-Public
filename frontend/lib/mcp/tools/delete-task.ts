@@ -48,10 +48,13 @@ export async function deleteTaskHandler(
   }
 
   try {
+    // Use the backend URL from environment (same as /api/tasks route)
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
+
     // Backend API: /api/v1/tasks - user is determined from JWT token
     // First, get the task to return its title in the message
     const getResponse = await fetch(
-      `${context.backendUrl}/api/v1/tasks/${task_id}`,
+      `${backendUrl}/api/v1/tasks/${task_id}`,
       {
         method: 'GET',
         headers: {
@@ -69,7 +72,7 @@ export async function deleteTaskHandler(
 
     // Delete the task
     const response = await fetch(
-      `${context.backendUrl}/api/v1/tasks/${task_id}`,
+      `${backendUrl}/api/v1/tasks/${task_id}`,
       {
         method: 'DELETE',
         headers: {

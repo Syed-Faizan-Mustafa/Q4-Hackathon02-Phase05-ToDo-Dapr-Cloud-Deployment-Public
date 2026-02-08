@@ -73,9 +73,12 @@ export async function addTaskHandler(
   }
 
   try {
-    // Backend API: /api/v1/tasks - user is determined from JWT token
+    // Use the backend URL from environment (same as /api/tasks route)
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
+
+    // Backend API: /api/v1/tasks - pass session token for auth
     const response = await fetch(
-      `${context.backendUrl}/api/v1/tasks`,
+      `${backendUrl}/api/v1/tasks`,
       {
         method: 'POST',
         headers: {
@@ -89,6 +92,9 @@ export async function addTaskHandler(
       }
     );
 
+    // Log for debugging
+    console.log('[MCP add_task] Backend response status:', response.status);
+
     if (!response.ok) {
       if (response.status === 401) {
         return {
@@ -100,6 +106,7 @@ export async function addTaskHandler(
         };
       }
       const errorData = await response.json().catch(() => ({}));
+      console.error('[MCP add_task] Backend error:', errorData);
       return {
         success: false,
         error: {
@@ -110,6 +117,7 @@ export async function addTaskHandler(
     }
 
     const task: Task = await response.json();
+    console.log('[MCP add_task] Task created:', task.id);
 
     // Add due date to the response message if provided
     let message = `Created task "${task.title}"`;
