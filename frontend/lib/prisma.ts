@@ -19,6 +19,7 @@ const prismaClientSingleton = () => {
   const pool = new Pool({ connectionString });
 
   // Create Prisma adapter for Neon
+  // @ts-expect-error - Type mismatch between Neon Pool and PrismaNeon expected type
   const adapter = new PrismaNeon(pool);
 
   return new PrismaClient({

@@ -44,6 +44,14 @@ export async function orchestrate(
 
     const { intent } = intentResult.data;
 
+    // Debug logging for intent analysis
+    console.log('[Orchestrator] Analyzed intent:', {
+      intent: intent.intent,
+      confidence: intent.confidence,
+      entities: intent.entities,
+      raw_message: intent.raw_message,
+    });
+
     // Step 2: Handle special intents (help, greeting) without MCP
     if (intent.intent === 'help') {
       return {

@@ -117,8 +117,17 @@ function getTemplateResponse(
   switch (action) {
     case 'create':
       if (result.task) {
+        // Build response with task details
+        let response = `✅ Task Created! / Task Ban Gaya!\n\n`;
+        response += `📌 **${result.task.title}**`;
+
+        // Add description info if available
+        if (result.task.description) {
+          response += `\n📝 ${result.task.description}`;
+        }
+
         return {
-          response: `Great! "${result.task.title}" has been added. ✓ / Zabardast! "${result.task.title}" add ho gaya. ✓`,
+          response,
           suggestedActions: ['Show my tasks / Meri tasks dikhao', 'Add more / Aur add karo'],
         };
       }
@@ -134,9 +143,15 @@ function getTemplateResponse(
       break;
 
     case 'delete':
-      if (result.task) {
+      // Delete action returns 'deleted: true' and 'message', not 'task'
+      if (result.deleted || result.message) {
+        // Extract task title from message if available
+        const deleteMessage = result.message || 'Task has been deleted';
+        // Try to extract title from message like 'Deleted task "Task Title"'
+        const titleMatch = deleteMessage.match(/["'](.+?)["']/);
+        const taskTitle = titleMatch ? titleMatch[1] : 'the task';
         return {
-          response: `Okay! "${result.task.title}" has been deleted. / Theek hai! "${result.task.title}" delete ho gaya.`,
+          response: `Okay! "${taskTitle}" has been deleted. / Theek hai! "${taskTitle}" delete ho gaya.`,
           suggestedActions: ['Show my tasks / Meri tasks dikhao'],
         };
       }

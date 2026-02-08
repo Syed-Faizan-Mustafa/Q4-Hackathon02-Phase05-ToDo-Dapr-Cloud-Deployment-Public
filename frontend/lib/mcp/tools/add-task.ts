@@ -60,6 +60,18 @@ export async function addTaskHandler(
     };
   }
 
+  // Build full description including due date if provided
+  // (Backend doesn't have due_date field, so we include it in description)
+  let fullDescription = description?.trim() || '';
+  if (due_date) {
+    const formattedDueDate = formatDueDateForDisplay(due_date);
+    if (fullDescription) {
+      fullDescription = `${fullDescription}\n📅 Due: ${formattedDueDate}`;
+    } else {
+      fullDescription = `📅 Due: ${formattedDueDate}`;
+    }
+  }
+
   try {
     // Backend API: /api/v1/tasks - user is determined from JWT token
     const response = await fetch(
@@ -72,7 +84,7 @@ export async function addTaskHandler(
         },
         body: JSON.stringify({
           title: title.trim(),
-          description: description?.trim() || null,
+          description: fullDescription || null,
         }),
       }
     );
@@ -99,11 +111,18 @@ export async function addTaskHandler(
 
     const task: Task = await response.json();
 
+    // Add due date to the response message if provided
+    let message = `Created task "${task.title}"`;
+    if (due_date) {
+      message += ` (Due: ${formatDueDateForDisplay(due_date)})`;
+    }
+
     return {
       success: true,
       content: {
         task,
-        message: `Created task "${task.title}"`,
+        due_date: due_date || null,
+        message,
       },
     };
   } catch (error) {
@@ -115,4 +134,38 @@ export async function addTaskHandler(
       },
     };
   }
+}
+
+/**
+ * Format due date for user-friendly display
+ */
+function formatDueDateForDisplay(dateStr: string): string {
+  // If it's already a formatted date like "2026-02-09", convert to readable format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const date = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.getTime() === today.getTime()) {
+      return 'Today / Aaj';
+    }
+    if (date.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow / Kal';
+    }
+
+    // Format with day name
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    };
+    return date.toLocaleDateString('en-US', options);
+  }
+
+  // Return as-is if not in ISO format
+  return dateStr;
 }

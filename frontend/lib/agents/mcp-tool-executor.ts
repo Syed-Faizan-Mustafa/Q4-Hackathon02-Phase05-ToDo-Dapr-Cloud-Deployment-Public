@@ -33,6 +33,14 @@ export async function executeMCPIntent(
   try {
     // Map intent to MCP tool name
     const toolName = intentToToolName(intent.intent);
+
+    // Debug logging
+    console.log('[MCP-Executor] Processing intent:', {
+      intent: intent.intent,
+      toolName,
+      entities: intent.entities,
+    });
+
     if (!toolName) {
       return {
         success: false,
