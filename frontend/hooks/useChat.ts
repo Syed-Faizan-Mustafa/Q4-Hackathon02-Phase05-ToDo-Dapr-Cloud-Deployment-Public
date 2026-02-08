@@ -201,6 +201,41 @@ export function useChat(): UseChatReturn {
 
         const data: ChatResponse = await response.json();
 
+        // Debug log
+        console.log('[useChat] API Response:', data);
+
+        // Even if there's an error, if we have a response message, show it
+        if (data.response) {
+          // Create assistant message with the response
+          const assistantMessage: ChatMessage = {
+            id: generateMessageId(),
+            sender: 'assistant',
+            content: data.response,
+            timestamp: new Date(),
+            status: 'sent',
+          };
+
+          // Handle rate limiting if present
+          if (data.error?.type === 'rate_limit' && data.error.retryAfter) {
+            startCooldown(data.error.retryAfter);
+          }
+
+          // Update user message status and add assistant message
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages
+              .map((msg) =>
+                msg.id === userMessage.id ? { ...msg, status: 'sent' as const } : msg
+              )
+              .concat(assistantMessage),
+            isLoading: false,
+            error: null, // Clear any previous error since we got a response
+          }));
+
+          return;
+        }
+
+        // Only show error state if we have no response at all
         if (!data.success || data.error) {
           const error: ChatError = data.error || {
             type: 'backend_error',
