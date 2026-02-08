@@ -270,9 +270,11 @@ function extractDueDateDetails(message: string): IntentEntities {
 
 /**
  * Extract task title/reference from complete/update/delete commands
+ * For update: handles "update taskname newvalue" or "update taskname 'newvalue'" formats
  */
 function extractTaskReference(message: string, intentType: string): IntentEntities {
   let cleanedMessage = message;
+  let newTitle: string | null = null;
 
   // Remove command prefixes based on intent
   if (intentType === 'complete_task') {
@@ -288,6 +290,27 @@ function extractTaskReference(message: string, intentType: string): IntentEntiti
       .replace(/\s*(update|edit|change)\s*(kar|karo|kardo|karein|karna)?$/i, '')
       .replace(/^task\s*/i, '')
       .trim();
+
+    // For update, check if there's a quoted new value: update gfhg "new title"
+    const quotedMatch = cleanedMessage.match(/^(\S+)\s+["'](.+?)["']$/);
+    if (quotedMatch) {
+      cleanedMessage = quotedMatch[1]; // task reference
+      newTitle = quotedMatch[2]; // new title in quotes
+    } else {
+      // Check for "to" keyword: update gfhg to new title
+      const toMatch = cleanedMessage.match(/^(\S+)\s+(?:to|se|main|mein)\s+(.+)$/i);
+      if (toMatch) {
+        cleanedMessage = toMatch[1];
+        newTitle = toMatch[2];
+      } else {
+        // Check for space-separated: update gfhg newtitle (two parts)
+        const parts = cleanedMessage.split(/\s+/);
+        if (parts.length >= 2) {
+          cleanedMessage = parts[0]; // first part is task reference
+          newTitle = parts.slice(1).join(' '); // rest is new title
+        }
+      }
+    }
   } else if (intentType === 'delete_task') {
     cleanedMessage = message
       .replace(/^(delete|remove|hata)\s*/i, '')
@@ -303,7 +326,7 @@ function extractTaskReference(message: string, intentType: string): IntentEntiti
   return {
     task_id: null,
     title: title || null,
-    description: null,
+    description: newTitle, // For update, description holds the new title value
     status_filter: null,
     due_date: null,
   };

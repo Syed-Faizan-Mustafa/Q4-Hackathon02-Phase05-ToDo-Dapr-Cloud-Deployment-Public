@@ -128,10 +128,13 @@ export function buildToolArgs(
       });
 
     case 'update_task':
+      // For update_task from pattern matching:
+      // entities.title = task reference (used to resolve task_id)
+      // entities.description = new title value (what to update the title to)
+      // Only send title if description exists (the new value to update)
       return filterNulls({
         task_id: entities.task_id,
-        title: entities.title,
-        description: entities.description,
+        title: entities.description, // Only the new title value, NOT the task reference
       });
 
     case 'complete_task':

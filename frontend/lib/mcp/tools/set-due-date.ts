@@ -70,8 +70,54 @@ export async function setDueDateHandler(
     // Use the backend URL from environment (same as /api/tasks route)
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
 
-    // Backend API: /api/v1/tasks - user is determined from JWT token
-    // Use PATCH for partial updates
+    // First, get the current task to preserve existing description
+    const getResponse = await fetch(
+      `${backendUrl}/api/v1/tasks/${task_id}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${context.jwtToken}`,
+        },
+      }
+    );
+
+    if (!getResponse.ok) {
+      if (getResponse.status === 401) {
+        return {
+          success: false,
+          error: {
+            code: 'AUTH_EXPIRED',
+            message: 'Session expired. Please sign in again.',
+          },
+        };
+      }
+      if (getResponse.status === 404) {
+        return {
+          success: false,
+          error: {
+            code: 'TASK_NOT_FOUND',
+            message: `Task ${task_id} not found`,
+          },
+        };
+      }
+    }
+
+    const currentTask: Task = await getResponse.json();
+
+    // Build new description with due date
+    // Remove any existing due date marker first
+    let existingDesc = currentTask.description || '';
+    existingDesc = existingDesc.replace(/\n?📅 Due:.*$/m, '').trim();
+
+    // Format the due date with day name
+    const formattedDate = formatDateWithDay(normalizedDate);
+    const newDescription = existingDesc
+      ? `${existingDesc}\n📅 Due: ${formattedDate}`
+      : `📅 Due: ${formattedDate}`;
+
+    // Backend API: /api/v1/tasks - update description to include due date
+    // (Backend doesn't have native due_date field)
     const response = await fetch(
       `${backendUrl}/api/v1/tasks/${task_id}`,
       {
@@ -81,7 +127,7 @@ export async function setDueDateHandler(
           Authorization: `Bearer ${context.jwtToken}`,
         },
         body: JSON.stringify({
-          due_date: normalizedDate,
+          description: newDescription,
         }),
       }
     );
@@ -121,7 +167,7 @@ export async function setDueDateHandler(
       success: true,
       content: {
         task,
-        message: `Set due date for "${task.title}" to ${formatDate(normalizedDate)}`,
+        message: `Set due date for "${task.title}" to ${formattedDate}`,
       },
     };
   } catch (error) {
@@ -189,7 +235,7 @@ function formatDateISO(date: Date): string {
 }
 
 /**
- * Format date for display
+ * Format date for display (simple format)
  */
 function formatDate(dateStr: string): string {
   try {
@@ -209,6 +255,39 @@ function formatDate(dateStr: string): string {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Format date with full day name for storage in description
+ * Example: "Wednesday, Feb 26, 2026"
+ */
+function formatDateWithDay(dateStr: string): string {
+  try {
+    const date = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // For today/tomorrow, also show the actual date
+    if (date.getTime() === today.getTime()) {
+      return `Today (${date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })})`;
+    }
+    if (date.getTime() === tomorrow.getTime()) {
+      return `Tomorrow (${date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })})`;
+    }
+
+    // Full format with day name
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
     });
   } catch {
     return dateStr;
