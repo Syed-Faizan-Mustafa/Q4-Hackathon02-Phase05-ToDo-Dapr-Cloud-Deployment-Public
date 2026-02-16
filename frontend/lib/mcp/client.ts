@@ -94,6 +94,10 @@ export function intentToToolName(intent: string): MCPToolName | null {
     delete_task: 'delete_task',
     set_due_date: 'set_due_date',
     get_task_dates: 'list_tasks', // Map to list_tasks with task_id filter
+    set_priority: 'set_priority',
+    add_tags: 'add_tags',
+    search_tasks: 'search_tasks',
+    set_recurring: 'set_recurring',
   };
 
   return mapping[intent] || null;
@@ -119,22 +123,27 @@ export function buildToolArgs(
       return filterNulls({
         title: entities.title,
         description: entities.description,
+        priority: entities.priority,
+        tags: entities.tags,
         due_date: entities.due_date,
       });
 
     case 'list_tasks':
       return filterNulls({
         status_filter: entities.status_filter || 'all',
+        priority: entities.priority,
+        search: entities.search,
       });
 
     case 'update_task':
       // For update_task from pattern matching:
       // entities.title = task reference (used to resolve task_id)
       // entities.description = new title value (what to update the title to)
-      // Only send title if description exists (the new value to update)
       return filterNulls({
         task_id: entities.task_id,
         title: entities.description, // Only the new title value, NOT the task reference
+        priority: entities.priority,
+        tags: entities.tags,
       });
 
     case 'complete_task':
@@ -158,6 +167,31 @@ export function buildToolArgs(
       // This will be handled differently in the tool executor
       return filterNulls({
         task_id: entities.task_id,
+      });
+
+    case 'set_priority':
+      return filterNulls({
+        task_id: entities.task_id,
+        priority: entities.priority,
+      });
+
+    case 'add_tags':
+      return filterNulls({
+        task_id: entities.task_id,
+        tags: entities.tags,
+      });
+
+    case 'search_tasks':
+      return filterNulls({
+        query: entities.search,
+        status_filter: entities.status_filter,
+      });
+
+    case 'set_recurring':
+      return filterNulls({
+        task_id: entities.task_id,
+        recurrence_pattern: entities.description, // Pattern stored in description by extractor
+        recurrence_interval: 1,
       });
 
     default:

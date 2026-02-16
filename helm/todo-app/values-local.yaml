@@ -1,0 +1,28 @@
+# Minikube-specific overrides
+
+global:
+  imagePullPolicy: Never
+
+backend:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+frontend:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+kafka:
+  storage: 1Gi
+
+zookeeper:
+  storage: 512Mi

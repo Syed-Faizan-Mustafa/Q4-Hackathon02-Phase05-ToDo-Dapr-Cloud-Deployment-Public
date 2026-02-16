@@ -6,9 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { signUpSchema, signInSchema, SignUpFormData, SignInFormData } from '@/lib/validations';
-import { cn } from '@/lib/utils';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -49,24 +47,34 @@ export function AuthForm({
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto" padding="lg">
-      <CardHeader>
-        <CardTitle className="text-center text-2xl">
+    <div className="w-full max-w-md mx-auto animate-fade-in">
+      {/* Brand */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-600 to-accent-600 mb-4 shadow-glow">
+          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900">
           {isSignUp ? 'Create an Account' : 'Welcome Back'}
-        </CardTitle>
-        <p className="text-center text-gray-500 mt-2">
+        </h1>
+        <p className="text-gray-500 mt-2 text-sm">
           {isSignUp
-            ? 'Sign up to start managing your tasks'
-            : 'Sign in to access your tasks'}
+            ? 'Sign up to start managing your tasks with AI'
+            : 'Sign in to access your TaskFlow AI workspace'}
         </p>
-      </CardHeader>
+      </div>
 
-      <CardContent className="mt-6">
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+      {/* Card */}
+      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-card p-6 sm:p-8">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
           {/* Error message */}
           {error && (
-            <div className="p-3 rounded-lg bg-error-50 border border-error-200 text-error-700 text-sm">
-              {error}
+            <div className="p-3 rounded-xl bg-error-50 border border-error-200 text-error-700 text-sm flex items-start gap-2 animate-fade-in">
+              <svg className="w-5 h-5 text-error-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
 
@@ -93,7 +101,7 @@ export function AuthForm({
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-8 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-8 text-gray-400 hover:text-gray-600 transition-colors"
               tabIndex={-1}
             >
               {showPassword ? (
@@ -111,15 +119,15 @@ export function AuthForm({
 
           {/* Password requirements hint for signup */}
           {isSignUp && (
-            <p className="text-xs text-gray-500">
-              Password must be at least 8 characters with uppercase, lowercase, and number
+            <p className="text-xs text-gray-400 -mt-2">
+              Must be 8+ characters with uppercase, lowercase, and number
             </p>
           )}
 
           {/* Submit button */}
           <Button
             type="submit"
-            className="w-full"
+            className="w-full !rounded-xl"
             size="lg"
             isLoading={isLoading}
             disabled={isLoading}
@@ -128,14 +136,24 @@ export function AuthForm({
           </Button>
         </form>
 
+        {/* Divider */}
+        <div className="relative mt-6 mb-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-3 text-gray-400">or</span>
+          </div>
+        </div>
+
         {/* Toggle link */}
-        <div className="mt-6 text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-gray-500">
           {isSignUp ? (
             <>
               Already have an account?{' '}
               <Link
                 href="/signin"
-                className="font-medium text-primary-600 hover:text-primary-500"
+                className="font-semibold text-primary-600 hover:text-primary-500 transition-colors"
               >
                 Sign in
               </Link>
@@ -145,14 +163,19 @@ export function AuthForm({
               Don&apos;t have an account?{' '}
               <Link
                 href="/signup"
-                className="font-medium text-primary-600 hover:text-primary-500"
+                className="font-semibold text-primary-600 hover:text-primary-500 transition-colors"
               >
                 Sign up
               </Link>
             </>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </p>
+      </div>
+
+      {/* Footer */}
+      <p className="text-center text-xs text-gray-400 mt-6">
+        Powered by TaskFlow AI
+      </p>
+    </div>
   );
 }

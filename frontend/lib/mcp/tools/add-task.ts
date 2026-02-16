@@ -1,23 +1,20 @@
 /**
  * MCP Tool: add_task
- * Feature: 003-ai-todo-chatbot
- * Task: T032
+ * Feature: Phase 5 Part A
  *
- * Creates a new task via Phase II backend API.
- * Implements FR-062 from specification.
+ * Creates a new task via backend API with priority, tags, due date, and recurrence.
  */
 
 import {
   MCPTool,
   MCPContext,
   MCPToolResult,
-  AddTaskInput,
   Task,
 } from '../types';
 
 export const addTaskTool: MCPTool = {
   name: 'add_task',
-  description: 'Add a new task to the user\'s todo list',
+  description: 'Add a new task to the user\'s todo list with optional priority, tags, due date, and recurrence',
   inputSchema: {
     type: 'object',
     properties: {
@@ -32,10 +29,35 @@ export const addTaskTool: MCPTool = {
         description: 'Task description (optional)',
         maxLength: 1000,
       },
+      priority: {
+        type: 'string',
+        description: 'Task priority level',
+        enum: ['high', 'medium', 'low'],
+        default: 'medium',
+      },
+      tags: {
+        type: 'array',
+        description: 'Task tags (max 10)',
+        items: { type: 'string' },
+      },
       due_date: {
         type: 'string',
-        description: 'Due date in ISO 8601 format (optional)',
+        description: 'Due date in ISO 8601 format (YYYY-MM-DD)',
         format: 'date',
+      },
+      is_recurring: {
+        type: 'boolean',
+        description: 'Whether this is a recurring task',
+      },
+      recurrence_pattern: {
+        type: 'string',
+        description: 'Recurrence pattern',
+        enum: ['daily', 'weekly', 'monthly'],
+      },
+      recurrence_interval: {
+        type: 'integer',
+        description: 'Recurrence interval (e.g., every N days/weeks/months)',
+        minimum: 1,
       },
     },
     required: ['title'],
@@ -48,7 +70,12 @@ export async function addTaskHandler(
 ): Promise<MCPToolResult> {
   const title = input.title as string | undefined;
   const description = input.description as string | undefined;
+  const priority = input.priority as string | undefined;
+  const tags = input.tags as string[] | undefined;
   const due_date = input.due_date as string | undefined;
+  const is_recurring = input.is_recurring as boolean | undefined;
+  const recurrence_pattern = input.recurrence_pattern as string | undefined;
+  const recurrence_interval = input.recurrence_interval as number | undefined;
 
   if (!title || title.trim().length === 0) {
     return {
@@ -60,120 +87,80 @@ export async function addTaskHandler(
     };
   }
 
-  // Build full description including due date if provided
-  // (Backend doesn't have due_date field, so we include it in description)
-  let fullDescription = description?.trim() || '';
-  if (due_date) {
-    const formattedDueDate = formatDueDateForDisplay(due_date);
-    if (fullDescription) {
-      fullDescription = `${fullDescription}\n📅 Due: ${formattedDueDate}`;
-    } else {
-      fullDescription = `📅 Due: ${formattedDueDate}`;
-    }
-  }
+  // Build request body with native fields
+  const body: Record<string, unknown> = {
+    title: title.trim(),
+  };
+
+  if (description?.trim()) body.description = description.trim();
+  if (priority) body.priority = priority;
+  if (tags && tags.length > 0) body.tags = tags;
+  if (due_date) body.due_date = due_date;
+  if (is_recurring !== undefined) body.is_recurring = is_recurring;
+  if (recurrence_pattern) body.recurrence_pattern = recurrence_pattern;
+  if (recurrence_interval !== undefined) body.recurrence_interval = recurrence_interval;
 
   try {
-    // Use the backend URL from environment (same as /api/tasks route)
     const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-    // Backend API: /api/v1/tasks - pass session token for auth
-    const response = await fetch(
-      `${backendUrl}/api/v1/tasks`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${context.jwtToken}`,
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: fullDescription || null,
-        }),
-      }
-    );
+    const response = await fetch(`${backendUrl}/api/v1/tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${context.jwtToken}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-    // Log for debugging
     console.log('[MCP add_task] Backend response status:', response.status);
 
     if (!response.ok) {
       if (response.status === 401) {
         return {
           success: false,
-          error: {
-            code: 'AUTH_EXPIRED',
-            message: 'Session expired. Please sign in again.',
-          },
+          error: { code: 'AUTH_EXPIRED', message: 'Session expired. Please sign in again.' },
         };
       }
       const errorData = await response.json().catch(() => ({}));
       console.error('[MCP add_task] Backend error:', errorData);
       return {
         success: false,
-        error: {
-          code: 'BACKEND_ERROR',
-          message: errorData.detail || 'Failed to create task',
-        },
+        error: { code: 'BACKEND_ERROR', message: errorData.detail || 'Failed to create task' },
       };
     }
 
     const task: Task = await response.json();
     console.log('[MCP add_task] Task created:', task.id);
 
-    // Add due date to the response message if provided
     let message = `Created task "${task.title}"`;
-    if (due_date) {
-      message += ` (Due: ${formatDueDateForDisplay(due_date)})`;
-    }
+    if (task.priority !== 'medium') message += ` (${task.priority} priority)`;
+    if (task.due_date) message += ` (Due: ${formatDueDateForDisplay(task.due_date)})`;
+    if (task.tags && task.tags.length > 0) message += ` [${task.tags.join(', ')}]`;
 
     return {
       success: true,
-      content: {
-        task,
-        due_date: due_date || null,
-        message,
-      },
+      content: { task, message },
     };
   } catch (error) {
     return {
       success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-      },
+      error: { code: 'NETWORK_ERROR', message: error instanceof Error ? error.message : 'Network error' },
     };
   }
 }
 
-/**
- * Format due date for user-friendly display
- */
 function formatDueDateForDisplay(dateStr: string): string {
-  // If it's already a formatted date like "2026-02-09", convert to readable format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const date = new Date(dateStr + 'T00:00:00');
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    const date = new Date(dateStr.split('T')[0] + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    if (date.getTime() === today.getTime()) {
-      return 'Today / Aaj';
-    }
-    if (date.getTime() === tomorrow.getTime()) {
-      return 'Tomorrow / Kal';
-    }
+    if (date.getTime() === today.getTime()) return 'Today';
+    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
 
-    // Format with day name
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    };
-    return date.toLocaleDateString('en-US', options);
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
   }
-
-  // Return as-is if not in ISO format
   return dateStr;
 }

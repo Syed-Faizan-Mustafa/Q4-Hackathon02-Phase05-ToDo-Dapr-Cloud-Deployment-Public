@@ -1,0 +1,56 @@
+{{- if .Values.global.dapr.enabled }}
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .Values.daprComponents.pubsubName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      value: "kafka.{{ .Values.kafkaNamespace }}.svc.cluster.local:{{ .Values.kafka.port }}"
+    - name: consumerGroup
+      value: "todo-app-group"
+    - name: authType
+      value: "none"
+    - name: maxMessageBytes
+      value: "1048576"
+    - name: consumeRetryInterval
+      value: "200ms"
+    - name: version
+      value: "3.0.0"
+    - name: disableTls
+      value: "true"
+  scopes:
+    - {{ .Values.backend.dapr.appId }}
+    - {{ .Values.auditService.dapr.appId }}
+    - {{ .Values.notificationService.dapr.appId }}
+    - {{ .Values.recurringTaskService.dapr.appId }}
+    - {{ .Values.websocketService.dapr.appId }}
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{ .Values.daprComponents.statestoreName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  type: state.postgresql
+  version: v1
+  metadata:
+    - name: connectionString
+      secretKeyRef:
+        name: database-credentials
+        key: connection-string
+    - name: tableName
+      value: "dapr_state"
+    - name: metadataTableName
+      value: "dapr_metadata"
+    - name: cleanupIntervalInSeconds
+      value: "3600"
+    - name: actorStateStore
+      value: "false"
+  scopes:
+    - {{ .Values.auditService.dapr.appId }}
+    - {{ .Values.notificationService.dapr.appId }}
+{{- end }}

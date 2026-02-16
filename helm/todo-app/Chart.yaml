@@ -1,0 +1,13 @@
+apiVersion: v2
+name: todo-app
+description: Todo Full-Stack App with Event-Driven Microservices
+type: application
+version: 1.0.0
+appVersion: "5.0.0"
+keywords:
+  - todo
+  - fastapi
+  - nextjs
+  - kafka
+  - dapr
+  - microservices

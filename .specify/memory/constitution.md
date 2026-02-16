@@ -2,18 +2,27 @@
 ================================================================================
 SYNC IMPACT REPORT
 ================================================================================
-Version Change: 1.0.0 → 2.0.0 (MAJOR - Phase III AI Chatbot Integration)
+Version Change: 2.0.0 → 3.0.0 (MAJOR - Phase IV Containerization + Phase V Advanced Cloud)
 
 Modified Principles:
-- Technology Stack expanded for AI Chatbot layer
-- Environment Configuration expanded for Cohere API
+- Technology Stack expanded for Kafka, Dapr, Microservices, K8s, CI/CD, Monitoring
+- Environment Configuration expanded for Dapr, Kafka, Cloud providers
+- Security Requirements expanded for Dapr secrets, K8s RBAC, inter-service auth
+- Intent Classification expanded with new intents (recurring, priority, tags, search)
 
 Added Sections:
-- Phase III: AI Todo Chatbot Principles (Principles VII-XII)
-- AI Chatbot Technology Stack
-- Multi-Agent Architecture section
-- Intent Classification Standards
-- Cohere API Integration Standards
+- Phase IV: Containerization & Local Deployment (Principle XIII)
+- Phase V: Advanced Cloud Deployment (Principles XIV-XX)
+  - XIV. Event-Driven Architecture (Kafka)
+  - XV. Dapr Integration
+  - XVI. Microservices Architecture
+  - XVII. Advanced Task Features
+  - XVIII. Cloud-Native Deployment
+  - XIX. CI/CD Pipeline
+  - XX. Monitoring & Observability
+- Phase IV & V Technology Stacks
+- Phase V Environment Variables
+- Phase V Success Criteria
 
 Removed Sections: None
 
@@ -21,11 +30,13 @@ Templates Requiring Updates:
 - ✅ plan-template.md - Constitution Check section references principles (compatible)
 - ✅ spec-template.md - Requirements align with FR/NFR patterns (compatible)
 - ✅ tasks-template.md - Phase structure aligns with constitution (compatible)
-- 🆕 Agent definitions in .claude/agents/ align with constitution
+- 🆕 7 new agent definitions in .claude/agents/ align with Phase V principles
+- 🆕 7 new skill definitions in .claude/skills/ align with Phase V principles
 
 Follow-up TODOs:
-- Create Phase III spec document for AI Chatbot
-- Implement Cohere adapter for Agent SDK
+- Create Part A spec for Advanced Features + Kafka + Dapr
+- Create Part B spec for Minikube + Dapr local deployment
+- Create Part C spec for Cloud + CI/CD + Monitoring
 
 ================================================================================
 -->
@@ -208,15 +219,359 @@ User-facing responses MUST follow these standards:
 
 ---
 
+## Phase IV: Containerization & Local Deployment
+
+### XIII. Container-First Architecture
+
+All services MUST be containerized and deployable via Kubernetes:
+- Every service (frontend, backend) MUST have a production-ready Dockerfile
+- Multi-stage Docker builds MUST be used for minimal image size
+- Helm charts MUST manage all Kubernetes resources
+- Local development MUST be supported via Minikube
+- `imagePullPolicy: Never` for Minikube (local images), `Always` for cloud
+
+**Deployment Artifacts**:
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| `frontend/Dockerfile` | Frontend container | Next.js production build |
+| `backend/Dockerfile` | Backend container | FastAPI + Uvicorn |
+| `todo-ai-chatbot/` | Helm chart | K8s deployment manifests |
+| `values.yaml` | Default config | Base Helm values |
+| `values-secrets.yaml` | Sensitive config | Credentials (gitignored) |
+
+**Health Checks**: All services MUST expose health endpoints for K8s liveness and readiness probes.
+
+**Rationale**: Containerization ensures environment consistency, enables horizontal scaling, and provides production parity in local development.
+
+---
+
+## Phase V: Advanced Cloud Deployment Principles
+
+### XIV. Event-Driven Architecture (Kafka)
+
+The application MUST evolve from synchronous CRUD to event-driven architecture:
+- Every significant task operation MUST produce a Kafka event
+- Services communicate through Kafka topics, NOT direct API calls for async operations
+- All events MUST follow strictly defined, versioned schemas
+- Producers and consumers MUST be completely decoupled
+
+**Kafka Topics**:
+| Topic | Producer | Consumer(s) | Purpose |
+|-------|----------|-------------|---------|
+| `task-events` | Chat API (MCP Tools) | Recurring Task Service, Audit Service | All task CRUD operations |
+| `reminders` | Chat API (due date set) | Notification Service | Scheduled reminder triggers |
+| `task-updates` | Chat API | WebSocket Service | Real-time client sync |
+
+**Event Schema Standards**:
+- Every event MUST include: `event_type`, `task_id`, `user_id`, `timestamp`
+- Schemas MUST be backward-compatible when updated
+- Events MUST NOT contain sensitive data (passwords, tokens, API keys)
+- Event IDs MUST support idempotent consumer processing
+
+**Task Event Schema**:
+```json
+{
+  "event_type": "created | updated | completed | deleted",
+  "task_id": "integer",
+  "task_data": "object (full task)",
+  "user_id": "string",
+  "timestamp": "ISO 8601 datetime"
+}
+```
+
+**Reminder Event Schema**:
+```json
+{
+  "task_id": "integer",
+  "title": "string",
+  "due_at": "ISO 8601 datetime",
+  "remind_at": "ISO 8601 datetime",
+  "user_id": "string"
+}
+```
+
+**Infrastructure**:
+- **Local (Minikube)**: Strimzi operator with ephemeral storage, single Kafka replica
+- **Cloud**: Redpanda Cloud Serverless (free tier) OR Strimzi self-hosted on AKS/GKE/OKE
+
+**Rationale**: Event-driven architecture decouples services, enables async processing (reminders, recurring tasks), provides a complete audit trail, and supports real-time multi-client sync.
+
+### XV. Dapr Integration (Distributed Application Runtime)
+
+All inter-service communication and infrastructure access MUST use Dapr building blocks when deployed on Kubernetes:
+- Applications talk to Dapr sidecar via HTTP (`http://localhost:3500`), Dapr handles infrastructure
+- Infrastructure changes (swap Kafka for RabbitMQ, PostgreSQL for Redis) MUST be achievable by changing YAML component configs, NOT application code
+- Every microservice pod MUST run a Dapr sidecar (annotation: `dapr.io/enabled: "true"`)
+
+**5 Required Dapr Building Blocks**:
+
+| Building Block | Component | Use Case |
+|----------------|-----------|----------|
+| **Pub/Sub** | `pubsub.kafka` | Kafka event publishing/subscribing without kafka-python library |
+| **State Management** | `state.postgresql` | Conversation state, task cache via Dapr State API |
+| **Service Invocation** | Built-in | Frontend → Backend with auto-discovery, retries, mTLS |
+| **Jobs API** | Built-in | Schedule exact-time reminders (no cron polling) |
+| **Secrets Management** | `secretstores.kubernetes` | Secure API key and credential access |
+
+**Dapr Component Naming Convention**:
+- Component names MUST be consistent across all services and environments
+- `kafka-pubsub` for Pub/Sub, `statestore` for State, `kubernetes-secrets` for Secrets
+
+**Pub/Sub Pattern**:
+```python
+# Publishing (via Dapr - no Kafka library needed)
+await httpx.post("http://localhost:3500/v1.0/publish/kafka-pubsub/task-events", json=event)
+
+# Subscribing (Dapr calls your endpoint)
+@app.post("/api/events/task-events")
+async def handle_event(request: Request): ...
+```
+
+**Jobs API Pattern**:
+```python
+# Schedule reminder at exact time
+await httpx.post(
+    f"http://localhost:3500/v1.0-alpha1/jobs/reminder-task-{task_id}",
+    json={"dueTime": remind_at.isoformat(), "data": {"task_id": task_id, "user_id": user_id}}
+)
+
+# Dapr calls back at scheduled time
+@app.post("/api/jobs/trigger")
+async def handle_job(request: Request): ...
+```
+
+**Rationale**: Dapr abstracts infrastructure behind simple HTTP APIs, keeps app code clean, enables backend swaps via config changes, and provides built-in retries, circuit breakers, and mTLS.
+
+### XVI. Microservices Architecture
+
+The application MUST decompose into specialized, independently deployable microservices:
+- Each microservice has ONE specific responsibility (Single Responsibility Principle)
+- Services communicate ONLY through Kafka events via Dapr Pub/Sub
+- Each service has its own Dockerfile, health endpoint, and K8s deployment
+- Services MUST NOT directly access other services' databases
+- Services MUST NOT import or depend on each other's code
+
+**Service Registry (6 Total)**:
+| Service | Type | Kafka Topic | Purpose |
+|---------|------|-------------|---------|
+| **Frontend** | Existing | N/A | Next.js UI + Chat interface |
+| **Backend (Chat API)** | Existing | Producer (all topics) | FastAPI + MCP tools, event publisher |
+| **Notification Service** | New | Consumer: `reminders` | Send due-date reminders to users |
+| **Recurring Task Service** | New | Consumer: `task-events` | Auto-create next task on completion |
+| **Audit Service** | New | Consumer: `task-events` | Complete activity history (append-only) |
+| **WebSocket Service** | New | Consumer: `task-updates` | Real-time broadcast to connected clients |
+
+**Service Template**:
+```
+services/{service-name}/
+  src/
+    main.py           # FastAPI app entry point
+    config.py         # Service configuration
+    handlers/         # Event/request handlers
+  tests/
+    test_handlers.py  # Handler unit tests
+  Dockerfile          # Multi-stage production build
+  requirements.txt    # Python dependencies
+  dapr/
+    subscription.yaml # Dapr subscription config
+```
+
+**Service Requirements**:
+- `GET /health` endpoint for K8s liveness/readiness probes
+- Structured JSON logging (no plain text logs)
+- Graceful shutdown (SIGTERM handling)
+- Idempotent event processing (handle duplicates)
+- Dapr sidecar annotations on K8s deployment
+
+**Rationale**: Microservices enable independent scaling, deployment, and failure isolation. Event-driven communication ensures loose coupling and resilience.
+
+### XVII. Advanced Task Features
+
+The task model MUST be extended with advanced and intermediate features while maintaining backward compatibility:
+
+**Advanced Features**:
+
+| Feature | New Fields | Chat Integration |
+|---------|-----------|-----------------|
+| **Recurring Tasks** | `is_recurring`, `recurrence_pattern`, `recurrence_interval` | "add a daily task to check emails" |
+| **Due Dates & Reminders** | `due_date`, `remind_at`, `reminder_sent` | "remind me about task 3 at 9am" |
+
+**Intermediate Features**:
+
+| Feature | New Fields | Chat Integration |
+|---------|-----------|-----------------|
+| **Priorities** | `priority` (high/medium/low, default: medium) | "add high priority task: fix bug" |
+| **Tags** | `tags` (JSON array) | "add task with tags: work, urgent" |
+| **Search** | N/A (PostgreSQL full-text) | "search for tasks about meeting" |
+| **Filter** | N/A (query params) | "show my high priority tasks" |
+| **Sort** | N/A (query params) | "list tasks sorted by due date" |
+
+**Extended Intent Classification** (additions to Principle XI):
+
+| Intent | Description | New Entities |
+|--------|-------------|-------------|
+| `add_task` | Extended | `priority`, `tags[]`, `is_recurring`, `recurrence_pattern` |
+| `list_tasks` | Extended | `priority_filter`, `tag_filter`, `sort_by`, `sort_order`, `search_query` |
+| `set_reminder` | New | `task_id`, `remind_at` |
+| `search_tasks` | New | `search_query`, `filters` |
+
+**Backward Compatibility Requirements**:
+- All new fields MUST have sensible defaults (existing tasks unaffected)
+- Existing API endpoints MUST remain functional
+- New features MUST be additive, not breaking
+- MCP tools MUST accept new optional parameters alongside existing ones
+
+**Rationale**: Advanced features transform the basic CRUD app into a full-featured task management system while event-driven processing (Kafka + microservices) handles reminders and recurring tasks asynchronously.
+
+### XVIII. Cloud-Native Deployment
+
+The application MUST be deployable to production-grade Kubernetes on cloud providers:
+- The SAME Helm chart MUST work on Minikube, AKS, GKE, and OKE with different `values-{env}.yaml` files
+- ALL Kubernetes resources MUST be managed through Helm charts (no raw `kubectl apply` for app resources)
+- Every infrastructure change MUST be in version-controlled YAML manifests
+
+**Supported Cloud Providers**:
+| Provider | Service | Credits | Notes |
+|----------|---------|---------|-------|
+| Azure | AKS | $200 / 30 days | Free trial |
+| Google Cloud | GKE | $300 / 90 days | Free trial |
+| Oracle Cloud | OKE | Always free | 4 OCPUs, 24GB RAM (recommended for learning) |
+
+**Values File Strategy**:
+```
+todo-ai-chatbot/
+  values.yaml              # Base defaults
+  values-local.yaml        # Minikube overrides
+  values-aks.yaml          # Azure AKS overrides
+  values-gke.yaml          # Google GKE overrides
+  values-oke.yaml          # Oracle OKE overrides
+  values-secrets.yaml      # Sensitive values (GITIGNORED)
+```
+
+**Environment Differences**:
+| Aspect | Minikube (Local) | Cloud (AKS/GKE/OKE) |
+|--------|-----------------|---------------------|
+| Image Pull | `Never` (local) | `Always` (registry) |
+| Service Type | NodePort | LoadBalancer/Ingress |
+| Kafka | Strimzi (ephemeral) | Redpanda Cloud / Strimzi |
+| Dapr | Basic (5 blocks) | Full (5 blocks + production config) |
+| Replicas | 1 per service | 2+ per service |
+| TLS | None | Enabled |
+| HPA | Disabled | Enabled |
+
+**Deployment Requirements**:
+- All containers MUST have CPU/memory requests and limits
+- All services MUST have liveness and readiness probes
+- Secrets MUST use K8s Secrets (never in ConfigMaps or env)
+- RBAC MUST be configured for service accounts
+- Helm chart MUST pass `helm lint` and `helm template` validation
+
+**Rationale**: Cloud-native deployment with Helm ensures reproducible, scalable infrastructure that works identically across local development and production environments.
+
+### XIX. CI/CD Pipeline
+
+All build, test, and deployment processes MUST be automated via GitHub Actions:
+- Every repeatable process MUST be in a GitHub Actions workflow
+- CI MUST run on every PR and push to main
+- CD MUST deploy automatically to staging, with manual approval for production
+- Docker images MUST be built and pushed for all 6 services
+
+**Pipeline Structure**:
+```
+.github/workflows/
+  ci.yml              # Lint, test, build validation
+  cd.yml              # Build, push, deploy
+  docker-build.yml    # Docker image builds
+  helm-deploy.yml     # Helm deployment
+  release.yml         # Release automation
+```
+
+**CI Pipeline** (on PR/push):
+1. Lint (ESLint, flake8, mypy)
+2. Test frontend (Jest)
+3. Test backend (pytest)
+4. Test microservices (pytest)
+5. Build Docker images (validation)
+6. Helm lint
+
+**CD Pipeline** (on main, after CI):
+1. Build and push Docker images to registry
+2. Deploy to staging cluster
+3. Run smoke tests
+4. Deploy to production (manual approval required)
+
+**Pipeline Requirements**:
+- NEVER commit secrets in workflow files; use GitHub Secrets
+- ALWAYS use pinned action versions (`@v4`, not `@latest`)
+- ALWAYS run tests before any deployment
+- Production deployment MUST require manual approval
+- NEVER deploy to production from feature branches
+- Use caching for npm, pip, Docker layers
+
+**Rationale**: Automated CI/CD ensures consistent quality, fast feedback, and reliable deployments while preventing human error in the release process.
+
+### XX. Monitoring & Observability
+
+All services MUST be instrumented with the three pillars of observability:
+
+**1. Metrics (Prometheus)**:
+- HTTP request rate, latency (p50/p95/p99), error rate per service
+- Kafka consumer lag, message processing rate
+- Dapr sidecar health and invocation metrics
+- Pod CPU/memory usage, node utilization
+- Python services: `prometheus_fastapi_instrumentator`
+
+**2. Dashboards (Grafana)**:
+- Overview dashboard: total requests, error rate, active users
+- Per-service dashboards: latency, status codes, throughput
+- Kafka dashboard: consumer lag, topic throughput
+- Infrastructure dashboard: pod status, resource usage
+
+**3. Logs (Loki)**:
+- Centralized log aggregation with Promtail DaemonSet
+- ALL services MUST use structured JSON logging
+- Log labels: `app`, `namespace`, `pod`, `level`
+- Python: `structlog` for structured logging
+
+**4. Traces (Jaeger)**:
+- End-to-end distributed tracing across all services
+- OpenTelemetry SDK for instrumentation
+- Trace context propagation through Dapr headers
+- Configurable sampling: 100% (dev), 10% (prod)
+
+**5. Alerting**:
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| HighErrorRate | > 5% for 5min | Critical |
+| HighLatency | p95 > 2s for 5min | Warning |
+| KafkaConsumerLag | > 1000 for 10min | Warning |
+| PodCrashLoop | > 3 restarts in 5min | Critical |
+| ServiceDown | Health check fails 1min | Critical |
+
+**Monitoring Stack**:
+- `kube-prometheus-stack` Helm chart (Prometheus + Grafana + AlertManager)
+- `loki-stack` Helm chart (Loki + Promtail)
+- `jaeger` Helm chart (all-in-one for dev)
+
+**Requirements**:
+- Monitoring stack MUST NOT consume > 20% of cluster resources
+- Dashboard configs MUST be version-controlled (JSON provisioning)
+- Log rotation and retention policies MUST be configured
+- All alerts MUST be tested with synthetic load before production
+
+**Rationale**: Comprehensive observability enables proactive issue detection, faster debugging, and data-driven capacity planning.
+
+---
+
 ## Technology Stack
 
 ### Phase II Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js (React) |
-| Backend | FastAPI (Python) |
-| Database | PostgreSQL (Neon Serverless) |
+| Frontend | Next.js 14 (React 18) |
+| Backend | FastAPI (Python 3.11+) |
+| Database | PostgreSQL 14+ (Neon Serverless) |
 | Authentication | Better Auth (JWT) |
 | API Protocol | REST over HTTPS |
 
@@ -229,17 +584,43 @@ User-facing responses MUST follow these standards:
 | Backend Integration | Phase II FastAPI REST API |
 | Runtime | Python 3.11+ |
 
+### Phase IV Stack (Containerization)
+
+| Layer | Technology |
+|-------|------------|
+| Containerization | Docker (multi-stage builds) |
+| Orchestration | Kubernetes via Helm 3 |
+| Local K8s | Minikube |
+| Package Management | Helm charts |
+
+### Phase V Stack (Advanced Cloud)
+
+| Layer | Technology |
+|-------|------------|
+| Event Streaming | Apache Kafka (Strimzi / Redpanda Cloud) |
+| App Runtime | Dapr 1.x (5 building blocks) |
+| Microservices | Python 3.11+ (FastAPI) - 4 new services |
+| Cloud K8s | AKS (Azure) / GKE (Google) / OKE (Oracle) |
+| CI/CD | GitHub Actions |
+| Metrics | Prometheus + Grafana |
+| Logs | Loki + Promtail |
+| Traces | Jaeger / OpenTelemetry |
+| Alerting | Grafana Alerting / AlertManager |
+
 **Constraints**:
 - Python version: 3.11+
 - Node.js version: 18+
 - PostgreSQL version: 14+
 - Cohere API: Latest stable version
+- Dapr: 1.x (latest stable)
+- Kubernetes: 1.27+
+- Helm: 3.x
 
 ---
 
 ## Environment Variables
 
-### Required Variables
+### Phase II/III Required Variables
 
 | Variable | Location | Purpose |
 |----------|----------|---------|
@@ -247,9 +628,23 @@ User-facing responses MUST follow these standards:
 | `COHERE_MODEL` | `.env.local` | Model selection (command-r-plus/command-r) |
 | `BACKEND_API_URL` | `.env.local` | Phase II backend base URL |
 | `BETTER_AUTH_SECRET` | `.env.local` | JWT verification (shared) |
+| `DATABASE_URL` | `backend/.env` | PostgreSQL connection string |
 | `AGENT_INTENT_TEMPERATURE` | `.env.local` | Intent analyzer temperature |
 | `AGENT_RESPONSE_TEMPERATURE` | `.env.local` | Response composer temperature |
 | `AGENT_MAX_TOKENS` | `.env.local` | Max tokens per agent response |
+
+### Phase V Additional Variables
+
+| Variable | Location | Purpose |
+|----------|----------|---------|
+| `KAFKA_BROKERS` | K8s Secret / `.env` | Kafka bootstrap servers |
+| `KAFKA_SECURITY_PROTOCOL` | K8s Secret / `.env` | SASL_SSL for cloud, PLAINTEXT for local |
+| `KAFKA_SASL_USERNAME` | K8s Secret | Kafka SASL username (cloud only) |
+| `KAFKA_SASL_PASSWORD` | K8s Secret | Kafka SASL password (cloud only) |
+| `DAPR_HTTP_PORT` | Dapr sidecar | Default: 3500 |
+| `NOTIFICATION_EMAIL_PROVIDER` | K8s Secret | Email service credentials |
+| `DOCKER_REGISTRY_URL` | GitHub Secret | Container registry URL |
+| `KUBE_CONFIG` | GitHub Secret | K8s cluster credentials |
 
 ### File Locations
 
@@ -259,6 +654,7 @@ User-facing responses MUST follow these standards:
 | `.env.local` | Actual credentials | **GITIGNORED** |
 | `backend/.env` | Backend-specific config | **GITIGNORED** |
 | `frontend/.env` | Frontend-specific config | **GITIGNORED** |
+| `values-secrets.yaml` | K8s Helm secrets | **GITIGNORED** |
 
 ---
 
@@ -281,6 +677,23 @@ User-facing responses MUST follow these standards:
 4. Cohere API calls do NOT include PII in prompts
 5. Rate limiting applies to chatbot endpoints
 
+### Kubernetes Security (Phase IV/V)
+
+1. RBAC MUST be configured for all service accounts
+2. Network policies MUST restrict inter-pod communication
+3. Secrets MUST use K8s Secrets (never ConfigMaps or plain env)
+4. Dapr secrets store MUST be used for application credential access
+5. Container images MUST NOT run as root
+6. Pod security standards MUST be enforced
+
+### Inter-Service Security (Phase V)
+
+1. Dapr mTLS MUST be enabled for service-to-service communication
+2. Kafka SASL/SSL MUST be used for cloud deployments
+3. Event payloads MUST NOT contain sensitive credentials
+4. Audit service MUST log all access for compliance
+5. WebSocket connections MUST validate user authentication
+
 ### Security Controls
 
 - **Token Verification**: All endpoints require valid JWT (except health checks)
@@ -290,6 +703,8 @@ User-facing responses MUST follow these standards:
 - **CORS**: Configure allowed origins explicitly for production
 - **Rate Limiting**: Implement rate limiting on authentication endpoints
 - **API Key Protection**: Cohere API key MUST be server-side only, never exposed to client
+- **Container Security**: Non-root containers, read-only filesystems where possible
+- **Network Isolation**: K8s network policies for production clusters
 
 ---
 
@@ -324,10 +739,26 @@ This constitution defines non-negotiable principles for the Todo Full-Stack Web 
 | User Satisfaction | > 4/5 rating | User feedback |
 | API Error Handling | 100% graceful | No unhandled exceptions |
 
+### Phase V Advanced Cloud
+
+| Criteria | Target | Measurement |
+|----------|--------|-------------|
+| Event Processing Latency | < 1 second | Kafka consumer lag |
+| Service Availability | > 99.5% | Uptime monitoring |
+| Reminder Delivery Accuracy | > 99% | Notification success rate |
+| Recurring Task Creation | 100% on completion | Event processing audit |
+| Audit Trail Completeness | 100% events logged | Audit service verification |
+| Real-time Sync Delay | < 500ms | WebSocket latency |
+| CI Pipeline Duration | < 10 minutes | GitHub Actions metrics |
+| Deployment Success Rate | > 95% | CD pipeline metrics |
+| Dashboard Coverage | All 6 services | Grafana dashboard count |
+| Alert False Positive Rate | < 10% | Alert review |
+
 ---
 
-**Version**: 2.0.0 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-02-03
+**Version**: 3.0.0 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-02-12
 
 **Changelog**:
-- v1.0.0 (2026-01-09): Initial constitution with Phase II principles
+- v1.0.0 (2026-01-09): Initial constitution with Phase II principles (I-VI)
 - v2.0.0 (2026-02-03): Added Phase III AI Chatbot principles (VII-XII), Cohere integration, multi-agent architecture
+- v3.0.0 (2026-02-12): Added Phase IV Containerization (XIII), Phase V Advanced Cloud principles (XIV-XX): Event-Driven Architecture (Kafka), Dapr Integration, Microservices Architecture, Advanced Task Features, Cloud-Native Deployment, CI/CD Pipeline, Monitoring & Observability

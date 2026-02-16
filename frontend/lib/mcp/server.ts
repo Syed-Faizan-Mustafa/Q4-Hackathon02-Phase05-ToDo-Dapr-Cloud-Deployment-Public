@@ -20,6 +20,10 @@ import { updateTaskTool, updateTaskHandler } from './tools/update-task';
 import { completeTaskTool, completeTaskHandler } from './tools/complete-task';
 import { deleteTaskTool, deleteTaskHandler } from './tools/delete-task';
 import { setDueDateTool, setDueDateHandler } from './tools/set-due-date';
+import { setPriorityTool, setPriorityHandler } from './tools/set-priority';
+import { addTagsTool, addTagsHandler } from './tools/add-tags';
+import { searchTasksTool, searchTasksHandler } from './tools/search-tasks';
+import { setRecurringTool, setRecurringHandler } from './tools/set-recurring';
 
 // =============================================================================
 // Tool Registry
@@ -37,6 +41,10 @@ const toolRegistry: Map<MCPToolName, ToolRegistryEntry> = new Map([
   ['complete_task', { tool: completeTaskTool, handler: completeTaskHandler }],
   ['delete_task', { tool: deleteTaskTool, handler: deleteTaskHandler }],
   ['set_due_date', { tool: setDueDateTool, handler: setDueDateHandler }],
+  ['set_priority', { tool: setPriorityTool, handler: setPriorityHandler }],
+  ['add_tags', { tool: addTagsTool, handler: addTagsHandler }],
+  ['search_tasks', { tool: searchTasksTool, handler: searchTasksHandler }],
+  ['set_recurring', { tool: setRecurringTool, handler: setRecurringHandler }],
 ]);
 
 // =============================================================================

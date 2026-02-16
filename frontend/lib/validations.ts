@@ -19,7 +19,7 @@ export const signInSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-// Task schemas
+// Task schemas - Phase 5 Part A enhanced
 export const createTaskSchema = z.object({
   title: z
     .string()
@@ -30,6 +30,12 @@ export const createTaskSchema = z.object({
     .max(1000, 'Description must be 1000 characters or less')
     .optional()
     .or(z.literal('')),
+  priority: z.enum(['high', 'medium', 'low']).default('medium'),
+  tags: z.array(z.string().max(30)).max(10).default([]),
+  dueDate: z.string().optional().or(z.literal('')),
+  isRecurring: z.boolean().default(false),
+  recurrencePattern: z.enum(['daily', 'weekly', 'monthly']).nullable().default(null),
+  recurrenceInterval: z.number().min(1).default(1),
 });
 
 export const updateTaskSchema = z.object({
@@ -44,6 +50,12 @@ export const updateTaskSchema = z.object({
     .optional()
     .or(z.literal('')),
   completed: z.boolean().optional(),
+  priority: z.enum(['high', 'medium', 'low']).optional(),
+  tags: z.array(z.string().max(30)).max(10).optional(),
+  dueDate: z.string().optional().or(z.literal('')),
+  isRecurring: z.boolean().optional(),
+  recurrencePattern: z.enum(['daily', 'weekly', 'monthly']).nullable().optional(),
+  recurrenceInterval: z.number().min(1).optional(),
 });
 
 // Type inference

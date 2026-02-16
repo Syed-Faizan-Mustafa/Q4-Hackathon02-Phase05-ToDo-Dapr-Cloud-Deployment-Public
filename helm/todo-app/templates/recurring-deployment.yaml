@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recurring-task-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: recurring-task-service
+    {{- include "todo-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.recurringTaskService.replicaCount }}
+  selector:
+    matchLabels:
+      app: recurring-task-service
+  template:
+    metadata:
+      labels:
+        app: recurring-task-service
+      annotations:
+        {{- if .Values.global.dapr.enabled }}
+        dapr.io/enabled: "true"
+        dapr.io/app-id: {{ .Values.recurringTaskService.dapr.appId | quote }}
+        dapr.io/app-port: {{ .Values.recurringTaskService.dapr.appPort | quote }}
+        dapr.io/log-level: "info"
+        {{- end }}
+    spec:
+      containers:
+        - name: recurring-task-service
+          image: "{{ .Values.recurringTaskService.image.repository }}:{{ .Values.recurringTaskService.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.recurringTaskService.port }}
+          env:
+            - name: DAPR_URL
+              value: "http://localhost:3500"
+            - name: BACKEND_APP_ID
+              value: {{ .Values.backend.dapr.appId | quote }}
+            - name: PUBSUB_NAME
+              value: {{ .Values.daprComponents.pubsubName | quote }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.recurringTaskService.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.recurringTaskService.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.recurringTaskService.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recurring-task-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: recurring-task-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.recurringTaskService.port }}
+      targetPort: {{ .Values.recurringTaskService.port }}
+  selector:
+    app: recurring-task-service

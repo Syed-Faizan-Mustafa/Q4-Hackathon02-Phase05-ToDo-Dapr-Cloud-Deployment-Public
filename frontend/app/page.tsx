@@ -10,7 +10,6 @@ export default function HomePage() {
   const redirectedRef = useRef(false);
 
   useEffect(() => {
-    // Only redirect once after auth check completes (isAuthenticated is not null)
     if (isAuthenticated !== null && !redirectedRef.current) {
       redirectedRef.current = true;
       if (isAuthenticated) {
@@ -21,12 +20,15 @@ export default function HomePage() {
     }
   }, [isAuthenticated, router]);
 
-  // Show loading state while checking auth
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="flex flex-col items-center gap-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
-        <p className="text-gray-500">Loading...</p>
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-600 to-accent-600 flex items-center justify-center shadow-glow animate-pulse-soft">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <p className="text-sm text-gray-400">Loading TaskFlow AI...</p>
       </div>
     </main>
   );

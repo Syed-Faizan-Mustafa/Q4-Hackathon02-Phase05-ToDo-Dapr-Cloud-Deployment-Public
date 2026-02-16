@@ -215,5 +215,45 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - TypeScript 5.x (Frontend/MCP), Python 3.11 (Backend reference) (003-ai-todo-chatbot)
 - N/A (uses Phase II PostgreSQL via REST API) (003-ai-todo-chatbot)
 
+## Phase 5 Technologies (New)
+- Apache Kafka (Strimzi on K8s / Redpanda Cloud) - Event streaming
+- Dapr 1.x - Distributed Application Runtime (Pub/Sub, State, Service Invocation, Jobs, Secrets)
+- Python 3.11+ (FastAPI) - 4 new microservices (Notification, Recurring Task, Audit, WebSocket)
+- Prometheus + Grafana - Metrics and dashboards
+- Loki + Promtail - Log aggregation
+- Jaeger / OpenTelemetry - Distributed tracing
+- GitHub Actions - CI/CD pipelines
+- Kubernetes (Minikube local, AKS/GKE/OKE cloud) - Container orchestration
+- Helm 3 - K8s package management
+
+## Agent Registry (18 Total)
+
+### Phase II/III Agents (11 Existing)
+| Agent | Purpose |
+|-------|---------|
+| `todo-orchestrator` | Chat entry point, request orchestration |
+| `intent-analyzer` | NLU, intent classification |
+| `mcp-tool-executor` | Backend API invocation via MCP |
+| `response-composer` | User-friendly response generation |
+| `auth-integration-designer` | Authentication architecture guidance |
+| `sqlmodel-schema-designer` | Database schema design |
+| `todo-app-implementer` | Full-stack implementation |
+| `github-deployer-agent` | GitHub deployment automation |
+| `iteration-controller` | Multi-step workflow orchestration |
+| `qa-review-agent` | Quality assurance and testing |
+| `spec-architect-agent` | Architecture and specification design |
+
+### Phase V Agents (7 New)
+| Agent | Purpose | Phase 5 Part |
+|-------|---------|-------------|
+| `kafka-event-architect` | Kafka topics, schemas, producers/consumers | A |
+| `dapr-integration-agent` | Dapr 5 building blocks (PubSub, State, Service Invocation, Jobs, Secrets) | A/B/C |
+| `microservice-builder` | 4 new services: Notification, Recurring Task, Audit, WebSocket | A |
+| `kubernetes-deployer` | K8s manifests, Helm charts, Minikube + Cloud deploy | B/C |
+| `advanced-features-implementer` | Recurring tasks, priorities, tags, search, filter, sort | A |
+| `cicd-pipeline-agent` | GitHub Actions CI/CD pipelines | C |
+| `monitoring-observability-agent` | Prometheus, Grafana, Loki, Jaeger, alerting | C |
+
 ## Recent Changes
+- Phase V: Created 7 new agents and skills for Kafka, Dapr, Microservices, K8s, Advanced Features, CI/CD, Monitoring
 - 003-ai-todo-chatbot: Added TypeScript 5.x (Frontend), Python 3.11+ (Agent Logic) + Next.js 14+, OpenAI Agent SDK patterns, Cohere API, TailwindCSS

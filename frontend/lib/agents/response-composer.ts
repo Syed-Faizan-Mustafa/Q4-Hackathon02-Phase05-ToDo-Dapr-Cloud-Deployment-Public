@@ -126,6 +126,18 @@ function getTemplateResponse(
           response += `\n📝 ${result.task.description}`;
         }
 
+        // Add priority, tags, due date info
+        if (result.task.priority && result.task.priority !== 'medium') {
+          const emoji = result.task.priority === 'high' ? '🔴' : '🟢';
+          response += `\n${emoji} Priority: ${result.task.priority}`;
+        }
+        if (result.task.tags && result.task.tags.length > 0) {
+          response += `\n🏷️ Tags: ${result.task.tags.join(', ')}`;
+        }
+        if (result.task.due_date) {
+          response += `\n📅 Due: ${formatDisplayDate(result.task.due_date)}`;
+        }
+
         return {
           response,
           suggestedActions: ['Show my tasks / Meri tasks dikhao', 'Add more / Aur add karo'],
@@ -167,12 +179,82 @@ function getTemplateResponse(
       break;
 
     case 'set_due_date':
+      if (result.task) {
+        const dueInfo = result.task.due_date
+          ? formatDisplayDate(result.task.due_date)
+          : 'no date';
+        return {
+          response: `Set! "${result.task.title}" is due ${dueInfo}. / Set! "${result.task.title}" ${dueInfo} tak due hai. ✓`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      if (result.message) {
+        return {
+          response: result.message,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      break;
+
     case 'get_dates':
-      // Due dates are not supported in the current backend API
+      if (result.tasks && result.tasks.length > 0) {
+        let response = `Tasks with due dates / Due date wale tasks:\n`;
+        result.tasks.slice(0, 10).forEach((task: Task, i: number) => {
+          const status = task.completed ? '✓' : '○';
+          const dateStr = task.due_date ? formatDisplayDate(task.due_date) : '';
+          response += `${i + 1}. ${status} ${task.title} - ${dateStr}\n`;
+        });
+        return {
+          response: response.trim(),
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      if (result.task) {
+        const dueInfo = result.task.due_date
+          ? formatDisplayDate(result.task.due_date)
+          : 'no due date set / koi due date nahi';
+        return {
+          response: `"${result.task.title}" is due ${dueInfo}.`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
       return {
-        response: `Due dates feature is not available. / Due date feature abhi available nahi hai.`,
+        response: result.message || 'No tasks with due dates. / Kisi task ki due date nahi hai.',
         suggestedActions: ['Show my tasks / Meri tasks dikhao'],
       };
+
+    case 'set_priority':
+      if (result.task) {
+        const priorityEmoji = result.task.priority === 'high' ? '🔴' : result.task.priority === 'medium' ? '🟡' : '🟢';
+        return {
+          response: `${priorityEmoji} Set "${result.task.title}" priority to ${result.task.priority}. ✓ / "${result.task.title}" ki priority ${result.task.priority} ho gayi. ✓`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      break;
+
+    case 'add_tags':
+      if (result.task) {
+        const tagStr = result.task.tags.join(', ');
+        return {
+          response: `Tags updated for "${result.task.title}": [${tagStr}] ✓ / "${result.task.title}" ke tags update ho gaye: [${tagStr}] ✓`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      break;
+
+    case 'search':
+      return formatTaskList(result.tasks || [], intent);
+
+    case 'set_recurring':
+      if (result.task) {
+        const pattern = result.task.recurrence_pattern || 'recurring';
+        return {
+          response: `🔄 "${result.task.title}" will now repeat ${pattern}. ✓ / "${result.task.title}" ab ${pattern} repeat hoga. ✓`,
+          suggestedActions: ['Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      break;
 
     case 'list':
       return formatTaskList(result.tasks || [], intent);
@@ -223,9 +305,10 @@ function formatTaskList(
 
   displayTasks.forEach((task, index) => {
     const status = task.completed ? '✓' : '○';
-    // Note: Backend does not support due_date field
-    // Use index+1 for display since task IDs are UUIDs
-    response += `${index + 1}. ${status} ${task.title}\n`;
+    const priorityIcon = task.priority === 'high' ? '🔴' : task.priority === 'low' ? '🟢' : '';
+    const dueStr = task.due_date ? ` 📅 ${formatDisplayDate(task.due_date)}` : '';
+    const tagStr = task.tags && task.tags.length > 0 ? ` [${task.tags.join(', ')}]` : '';
+    response += `${index + 1}. ${status} ${priorityIcon} ${task.title}${dueStr}${tagStr}\n`;
   });
 
   if (hasMore) {
@@ -292,6 +375,14 @@ function getSuggestedActions(intent: ChatIntent): string[] {
     case 'set_due_date':
     case 'get_task_dates':
       return ['Show my tasks', 'What tasks are due?'];
+    case 'set_priority':
+      return ['Show my tasks', 'Show high priority'];
+    case 'add_tags':
+      return ['Show my tasks'];
+    case 'search_tasks':
+      return ['Show all tasks', 'Add a task'];
+    case 'set_recurring':
+      return ['Show my tasks'];
     default:
       return ['Show my tasks', 'Add a task'];
   }

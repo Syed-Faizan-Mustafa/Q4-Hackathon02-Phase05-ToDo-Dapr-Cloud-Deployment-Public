@@ -1,0 +1,163 @@
+# Default values for todo-app Helm chart
+
+namespace: todo-app
+kafkaNamespace: kafka
+
+# --- Global ---
+global:
+  imagePullPolicy: IfNotPresent
+  dapr:
+    enabled: true
+
+# --- Secrets ---
+secrets:
+  databaseUrl: ""
+  jwtPublicKey: ""
+  jwtAlgorithm: "RS256"
+  jwtIssuer: ""
+  cohereApiKey: ""
+
+# --- Backend ---
+backend:
+  replicaCount: 1
+  image:
+    repository: todo-backend
+    tag: latest
+  port: 8000
+  service:
+    type: NodePort
+    nodePort: 30080
+  dapr:
+    appId: backend
+    appPort: "8000"
+  env:
+    frontendUrl: "http://localhost:3000"
+    rateLimitPerMinute: "100"
+    debug: "false"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- Frontend ---
+frontend:
+  replicaCount: 1
+  image:
+    repository: todo-frontend
+    tag: latest
+  port: 3000
+  service:
+    type: NodePort
+    nodePort: 30000
+  env:
+    nextPublicApiUrl: "http://localhost:30080"
+    nextPublicAuthUrl: "http://localhost:30000"
+    backendUrl: "http://backend.todo-app.svc.cluster.local:8000"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- Audit Service ---
+auditService:
+  replicaCount: 1
+  image:
+    repository: audit-service
+    tag: latest
+  port: 8080
+  dapr:
+    appId: audit-service
+    appPort: "8080"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# --- Notification Service ---
+notificationService:
+  replicaCount: 1
+  image:
+    repository: notification-service
+    tag: latest
+  port: 8080
+  dapr:
+    appId: notification-service
+    appPort: "8080"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# --- Recurring Task Service ---
+recurringTaskService:
+  replicaCount: 1
+  image:
+    repository: recurring-task-service
+    tag: latest
+  port: 8080
+  dapr:
+    appId: recurring-task-service
+    appPort: "8080"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# --- WebSocket Service ---
+websocketService:
+  replicaCount: 1
+  image:
+    repository: websocket-service
+    tag: latest
+  port: 8080
+  service:
+    type: NodePort
+    nodePort: 30088
+  dapr:
+    appId: websocket-service
+    appPort: "8080"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# --- Kafka ---
+kafka:
+  replicaCount: 1
+  image:
+    repository: confluentinc/cp-kafka
+    tag: "7.6.0"
+  port: 9092
+  storage: 2Gi
+
+# --- Zookeeper ---
+zookeeper:
+  replicaCount: 1
+  image:
+    repository: confluentinc/cp-zookeeper
+    tag: "7.6.0"
+  port: 2181
+  storage: 1Gi
+
+# --- Dapr Components ---
+daprComponents:
+  pubsubName: kafka-pubsub
+  statestoreName: statestore

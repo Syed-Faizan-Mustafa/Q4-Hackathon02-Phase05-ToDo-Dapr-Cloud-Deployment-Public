@@ -1,23 +1,20 @@
 /**
  * MCP Tool: update_task
- * Feature: 003-ai-todo-chatbot
- * Task: T052
+ * Feature: Phase 5 Part A
  *
- * Updates an existing task's title or description.
- * Implements FR-064 from specification.
+ * Updates an existing task's fields (title, description, priority, tags, due_date).
  */
 
 import {
   MCPTool,
   MCPContext,
   MCPToolResult,
-  UpdateTaskInput,
   Task,
 } from '../types';
 
 export const updateTaskTool: MCPTool = {
   name: 'update_task',
-  description: 'Update an existing task\'s title or description',
+  description: 'Update an existing task\'s title, description, priority, tags, or due date',
   inputSchema: {
     type: 'object',
     properties: {
@@ -37,6 +34,21 @@ export const updateTaskTool: MCPTool = {
         description: 'New task description',
         maxLength: 1000,
       },
+      priority: {
+        type: 'string',
+        description: 'New priority level',
+        enum: ['high', 'medium', 'low'],
+      },
+      tags: {
+        type: 'array',
+        description: 'New tags list',
+        items: { type: 'string' },
+      },
+      due_date: {
+        type: 'string',
+        description: 'New due date in ISO 8601 format',
+        format: 'date',
+      },
     },
     required: ['task_id'],
   },
@@ -49,79 +61,60 @@ export async function updateTaskHandler(
   const task_id = input.task_id as string | undefined;
   const title = input.title as string | undefined;
   const description = input.description as string | undefined;
+  const priority = input.priority as string | undefined;
+  const tags = input.tags as string[] | undefined;
+  const due_date = input.due_date as string | undefined;
 
   if (!task_id || task_id.trim().length === 0) {
     return {
       success: false,
-      error: {
-        code: 'INVALID_INPUT',
-        message: 'Valid task ID is required',
-      },
+      error: { code: 'INVALID_INPUT', message: 'Valid task ID is required' },
     };
   }
 
-  const updateData: Record<string, string> = {};
-  if (title) {
-    updateData.title = title.trim();
-  }
-  if (description !== undefined) {
-    updateData.description = description.trim();
-  }
+  const updateData: Record<string, unknown> = {};
+  if (title) updateData.title = title.trim();
+  if (description !== undefined) updateData.description = description.trim();
+  if (priority) updateData.priority = priority;
+  if (tags !== undefined) updateData.tags = tags;
+  if (due_date !== undefined) updateData.due_date = due_date || null;
 
   if (Object.keys(updateData).length === 0) {
     return {
       success: false,
-      error: {
-        code: 'INVALID_INPUT',
-        message: 'Please specify what to update (title or description)',
-      },
+      error: { code: 'INVALID_INPUT', message: 'Please specify what to update (title, description, priority, tags, or due date)' },
     };
   }
 
   try {
-    // Use the backend URL from environment (same as /api/tasks route)
     const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-    // Backend API: /api/v1/tasks - user is determined from JWT token
-    // Use PATCH for partial updates
-    const response = await fetch(
-      `${backendUrl}/api/v1/tasks/${task_id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${context.jwtToken}`,
-        },
-        body: JSON.stringify(updateData),
-      }
-    );
+    const response = await fetch(`${backendUrl}/api/v1/tasks/${task_id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${context.jwtToken}`,
+      },
+      body: JSON.stringify(updateData),
+    });
 
     if (!response.ok) {
       if (response.status === 401) {
         return {
           success: false,
-          error: {
-            code: 'AUTH_EXPIRED',
-            message: 'Session expired. Please sign in again.',
-          },
+          error: { code: 'AUTH_EXPIRED', message: 'Session expired. Please sign in again.' },
         };
       }
       if (response.status === 404) {
         return {
           success: false,
-          error: {
-            code: 'TASK_NOT_FOUND',
-            message: `Task ${task_id} not found`,
-          },
+          error: { code: 'TASK_NOT_FOUND', message: `Task ${task_id} not found` },
         };
       }
       const errorData = await response.json().catch(() => ({}));
       return {
         success: false,
-        error: {
-          code: 'BACKEND_ERROR',
-          message: errorData.detail || 'Failed to update task',
-        },
+        error: { code: 'BACKEND_ERROR', message: errorData.detail || 'Failed to update task' },
       };
     }
 
@@ -129,18 +122,12 @@ export async function updateTaskHandler(
 
     return {
       success: true,
-      content: {
-        task,
-        message: `Updated task "${task.title}"`,
-      },
+      content: { task, message: `Updated task "${task.title}"` },
     };
   } catch (error) {
     return {
       success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-      },
+      error: { code: 'NETWORK_ERROR', message: error instanceof Error ? error.message : 'Network error' },
     };
   }
 }

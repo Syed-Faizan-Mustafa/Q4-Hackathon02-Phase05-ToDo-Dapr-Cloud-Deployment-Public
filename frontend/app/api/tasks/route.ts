@@ -16,7 +16,7 @@ async function getSession(request: NextRequest) {
   }
 }
 
-// GET /api/tasks - List all tasks
+// GET /api/tasks - List all tasks (with filter/sort/search passthrough)
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession(request);
@@ -28,7 +28,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks`, {
+    // Pass through query parameters to backend
+    const { searchParams } = new URL(request.url);
+    const queryString = searchParams.toString();
+    const backendUrl = queryString
+      ? `${API_BASE_URL}/api/v1/tasks?${queryString}`
+      : `${API_BASE_URL}/api/v1/tasks`;
+
+    const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${session.session.token}`,

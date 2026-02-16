@@ -23,6 +23,10 @@ export type IntentType =
   | 'delete_task'
   | 'set_due_date'
   | 'get_task_dates'
+  | 'set_priority'
+  | 'add_tags'
+  | 'search_tasks'
+  | 'set_recurring'
   | 'help'
   | 'greeting'
   | 'unknown';
@@ -33,6 +37,10 @@ export interface IntentEntities {
   description: string | null;
   status_filter: 'pending' | 'completed' | 'all' | null;
   due_date: string | null;
+  priority: 'high' | 'medium' | 'low' | null;
+  tags: string[] | null;
+  search: string | null;
+  ordinal: number | null;  // 1=newest, 2=second newest, etc.
 }
 
 export interface ChatIntent {
@@ -108,15 +116,21 @@ export interface TaskOperationResult {
   message?: string;
 }
 
-// Task type from Phase II backend
-// Backend uses 'completed' field (not 'is_completed')
-// Task IDs are UUIDs (strings), not integers
-// Note: Backend does NOT have due_date or completed_at fields
+// Task type from backend - Phase 5 enhanced with priority, tags, due_date, recurrence
 export interface Task {
   id: string;
   title: string;
   description: string | null;
   completed: boolean;
+  priority: 'high' | 'medium' | 'low';
+  tags: string[];
+  due_date: string | null;
+  remind_at: string | null;
+  reminder_sent: boolean;
+  is_recurring: boolean;
+  recurrence_pattern: string | null;
+  recurrence_interval: number;
+  parent_task_id: string | null;
   created_at: string;
   updated_at: string;
   user_id?: string;
@@ -192,35 +206,25 @@ export const COHERE_MODEL = 'command-a-03-2025';
 export const WELCOME_MESSAGE = `Hello! I'm your Todo Assistant / Assalam o Alaikum! Main aapka Todo Assistant hoon.
 
 I can help you with / Main yeh kaam kar sakta hoon:
-• Add tasks - "Add buy groceries" / "Gym daily add kardo"
-• Show tasks - "Show my tasks" / "Meri tasks dikhao"
-• Complete tasks - "Complete buy groceries" / "Grocery shopping complete kardo"
-• Update tasks - "Update my first task" / "Pehla task update kardo"
+• Add tasks - "Add buy groceries with high priority" / "Gym task add kardo"
+• Show tasks - "Show my tasks" / "Show high priority tasks"
+• Complete tasks - "Complete buy groceries" / "Task complete kardo"
+• Update tasks - "Update my first task" / "Set priority high for task"
 • Delete tasks - "Delete gym task" / "Gym wala task delete kardo"
+• Set due dates - "Set task due tomorrow" / "Task kal tak kardo"
 
 Just tell me what you need! / Bas mujhe batao kya karna hai!`;
 
 // Help message when user asks for capabilities (Bilingual)
 export const HELP_MESSAGE = `I can help you manage your tasks / Main aapki madad kar sakta hoon:
 
-📝 **Add Task / Task Add Karna:**
-   English: "Add meeting with team", "Create new task buy milk"
-   Urdu: "Meeting add kardo", "Grocery shopping add karo"
+📝 **Add Task:** "Add buy groceries with high priority", "Add task #work #urgent"
+📋 **View Tasks:** "Show my tasks", "Show high priority", "Search meeting"
+✅ **Complete Task:** "Complete grocery shopping", "Mark meeting done"
+✏️ **Update Task:** "Update my first task", "Set priority high for task"
+📅 **Due Dates:** "Set task due tomorrow", "Show overdue tasks"
+🗑️ **Delete Task:** "Delete gym task", "Remove meeting task"
 
-📋 **View Tasks / Tasks Dekhna:**
-   English: "Show my tasks", "List pending tasks", "Show completed"
-   Urdu: "Meri tasks dikhao", "Pending dikhao", "Completed dikhao"
+Features: priorities (high/medium/low), tags (#work, #personal), due dates, search, and more!
 
-✅ **Complete Task / Task Complete Karna:**
-   English: "Complete grocery shopping", "Mark meeting done"
-   Urdu: "Grocery shopping complete kardo", "Meeting ho gayi"
-
-✏️ **Update Task / Task Update Karna:**
-   English: "Update my first task", "Change title of gym task"
-   Urdu: "Pehla task update kardo", "Gym wale ka title badlo"
-
-🗑️ **Delete Task / Task Delete Karna:**
-   English: "Delete gym task", "Remove meeting task"
-   Urdu: "Gym wala task delete kardo", "Meeting hata do"
-
-You can speak in English, Urdu, or mix both! / English, Urdu ya dono mila kar baat kar sakte ho!`;
+English, Urdu ya dono mila kar baat kar sakte ho!`;

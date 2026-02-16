@@ -7,8 +7,8 @@ import '@/styles/globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Todo App - Phase III',
-  description: 'A professional task management application with AI assistant',
+  title: 'TaskFlow AI - Smart Task Management',
+  description: 'AI-powered task management with real-time sync, smart reminders, and event-driven architecture',
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },

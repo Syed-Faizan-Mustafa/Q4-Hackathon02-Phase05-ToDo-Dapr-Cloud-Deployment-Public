@@ -1,17 +1,14 @@
 /**
  * MCP Tool: set_due_date
- * Feature: 003-ai-todo-chatbot
- * Task: T065
+ * Feature: Phase 5 Part A
  *
- * Sets or updates the due date for a task.
- * Implements FR-067 from specification.
+ * Sets or updates the due date for a task using native due_date field.
  */
 
 import {
   MCPTool,
   MCPContext,
   MCPToolResult,
-  SetDueDateInput,
   Task,
 } from '../types';
 
@@ -28,7 +25,7 @@ export const setDueDateTool: MCPTool = {
       },
       due_date: {
         type: 'string',
-        description: 'Due date in ISO 8601 format (required)',
+        description: 'Due date in ISO 8601 format (YYYY-MM-DD) (required)',
         format: 'date',
       },
     },
@@ -46,20 +43,14 @@ export async function setDueDateHandler(
   if (!task_id || task_id.trim().length === 0) {
     return {
       success: false,
-      error: {
-        code: 'INVALID_INPUT',
-        message: 'Valid task ID is required',
-      },
+      error: { code: 'INVALID_INPUT', message: 'Valid task ID is required' },
     };
   }
 
   if (!due_date) {
     return {
       success: false,
-      error: {
-        code: 'INVALID_INPUT',
-        message: 'Due date is required',
-      },
+      error: { code: 'INVALID_INPUT', message: 'Due date is required' },
     };
   }
 
@@ -67,101 +58,40 @@ export async function setDueDateHandler(
   const normalizedDate = parseDueDate(due_date);
 
   try {
-    // Use the backend URL from environment (same as /api/tasks route)
     const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-    // First, get the current task to preserve existing description
-    const getResponse = await fetch(
-      `${backendUrl}/api/v1/tasks/${task_id}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${context.jwtToken}`,
-        },
-      }
-    );
-
-    if (!getResponse.ok) {
-      if (getResponse.status === 401) {
-        return {
-          success: false,
-          error: {
-            code: 'AUTH_EXPIRED',
-            message: 'Session expired. Please sign in again.',
-          },
-        };
-      }
-      if (getResponse.status === 404) {
-        return {
-          success: false,
-          error: {
-            code: 'TASK_NOT_FOUND',
-            message: `Task ${task_id} not found`,
-          },
-        };
-      }
-    }
-
-    const currentTask: Task = await getResponse.json();
-
-    // Build new description with due date
-    // Remove any existing due date marker first
-    let existingDesc = currentTask.description || '';
-    existingDesc = existingDesc.replace(/\n?📅 Due:.*$/m, '').trim();
-
-    // Format the due date with day name
-    const formattedDate = formatDateWithDay(normalizedDate);
-    const newDescription = existingDesc
-      ? `${existingDesc}\n📅 Due: ${formattedDate}`
-      : `📅 Due: ${formattedDate}`;
-
-    // Backend API: /api/v1/tasks - update description to include due date
-    // (Backend doesn't have native due_date field)
-    const response = await fetch(
-      `${backendUrl}/api/v1/tasks/${task_id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${context.jwtToken}`,
-        },
-        body: JSON.stringify({
-          description: newDescription,
-        }),
-      }
-    );
+    // Use native due_date field via PATCH
+    const response = await fetch(`${backendUrl}/api/v1/tasks/${task_id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${context.jwtToken}`,
+      },
+      body: JSON.stringify({ due_date: normalizedDate }),
+    });
 
     if (!response.ok) {
       if (response.status === 401) {
         return {
           success: false,
-          error: {
-            code: 'AUTH_EXPIRED',
-            message: 'Session expired. Please sign in again.',
-          },
+          error: { code: 'AUTH_EXPIRED', message: 'Session expired. Please sign in again.' },
         };
       }
       if (response.status === 404) {
         return {
           success: false,
-          error: {
-            code: 'TASK_NOT_FOUND',
-            message: `Task ${task_id} not found`,
-          },
+          error: { code: 'TASK_NOT_FOUND', message: `Task ${task_id} not found` },
         };
       }
       const errorData = await response.json().catch(() => ({}));
       return {
         success: false,
-        error: {
-          code: 'BACKEND_ERROR',
-          message: errorData.detail || 'Failed to set due date',
-        },
+        error: { code: 'BACKEND_ERROR', message: errorData.detail || 'Failed to set due date' },
       };
     }
 
     const task: Task = await response.json();
+    const formattedDate = formatDateWithDay(normalizedDate);
 
     return {
       success: true,
@@ -173,122 +103,60 @@ export async function setDueDateHandler(
   } catch (error) {
     return {
       success: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: error instanceof Error ? error.message : 'Network error',
-      },
+      error: { code: 'NETWORK_ERROR', message: error instanceof Error ? error.message : 'Network error' },
     };
   }
 }
 
-/**
- * Parse and normalize due date (handles relative dates)
- */
 function parseDueDate(dateStr: string): string {
   const lower = dateStr.toLowerCase().trim();
   const today = new Date();
 
-  // Handle relative dates
-  if (lower === 'today') {
-    return formatDateISO(today);
-  }
-
+  if (lower === 'today') return formatDateISO(today);
   if (lower === 'tomorrow') {
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return formatDateISO(tomorrow);
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return formatDateISO(d);
   }
-
   if (lower === 'next week') {
-    const nextWeek = new Date(today);
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    return formatDateISO(nextWeek);
+    const d = new Date(today);
+    d.setDate(d.getDate() + 7);
+    return formatDateISO(d);
   }
 
-  // Handle day names
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayIndex = days.indexOf(lower);
   if (dayIndex !== -1) {
-    const targetDay = new Date(today);
-    const currentDay = today.getDay();
-    let daysUntil = dayIndex - currentDay;
-    if (daysUntil <= 0) daysUntil += 7;
-    targetDay.setDate(targetDay.getDate() + daysUntil);
-    return formatDateISO(targetDay);
+    const d = new Date(today);
+    const current = today.getDay();
+    let diff = dayIndex - current;
+    if (diff <= 0) diff += 7;
+    d.setDate(d.getDate() + diff);
+    return formatDateISO(d);
   }
 
-  // Try to parse as ISO date
   const parsed = new Date(dateStr);
-  if (!isNaN(parsed.getTime())) {
-    return formatDateISO(parsed);
-  }
+  if (!isNaN(parsed.getTime())) return formatDateISO(parsed);
 
-  // Return as-is if we can't parse it
   return dateStr;
 }
 
-/**
- * Format date to ISO string (YYYY-MM-DD)
- */
 function formatDateISO(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-/**
- * Format date for display (simple format)
- */
-function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'today';
-    }
-    if (date.toDateString() === tomorrow.toDateString()) {
-      return 'tomorrow';
-    }
-
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-/**
- * Format date with full day name for storage in description
- * Example: "Wednesday, Feb 26, 2026"
- */
 function formatDateWithDay(dateStr: string): string {
   try {
     const date = new Date(dateStr + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // For today/tomorrow, also show the actual date
-    if (date.getTime() === today.getTime()) {
-      return `Today (${date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })})`;
-    }
-    if (date.getTime() === tomorrow.getTime()) {
-      return `Tomorrow (${date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })})`;
-    }
+    if (date.getTime() === today.getTime()) return 'Today';
+    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
 
-    // Full format with day name
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return dateStr;
   }

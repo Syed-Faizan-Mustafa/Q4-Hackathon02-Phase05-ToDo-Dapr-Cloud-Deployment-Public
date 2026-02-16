@@ -32,13 +32,13 @@ SUPPORTED INTENTS:
   Examples: "Show my tasks", "Meri tasks dikhao", "kya kya karna hai", "pending tasks", "completed dikhao"
 
 - update_task: User wants to modify a task's title or description
-  Examples: "Change task 5 title", "Task 3 ka naam badlo", "update kardo task 2"
+  Examples: "Change task 5 title", "Task 3 ka naam badlo", "update kardo task 2", "update buy milk 1st to buy coffee"
 
 - complete_task: User wants to mark a task as done
-  Examples: "Mark task 3 done", "Task 1 complete kardo", "ho gaya task 2", "done hai", "finish task"
+  Examples: "Mark task 3 done", "Task 1 complete kardo", "ho gaya task 2", "done hai", "finish task", "complete 1st task", "pehla task complete karo"
 
 - delete_task: User wants to remove a task
-  Examples: "Delete task 7", "Task 3 delete kardo", "hata do task 5", "remove kardo"
+  Examples: "Delete task 7", "Task 3 delete kardo", "hata do task 5", "remove kardo", "delete task 1st" (=delete newest), "delete buy milk 2nd" (=delete second newest "buy milk"), "aakhri task delete karo" (=delete oldest)
 
 - set_due_date: User wants to set a due date
   Examples: "Set task 2 due tomorrow", "Task 1 kal tak", "Friday ko due hai task 3"
@@ -51,6 +51,18 @@ SUPPORTED INTENTS:
 
 - greeting: User is greeting
   Examples: "hi", "hello", "salam", "assalam o alaikum", "hey"
+
+- set_priority: User wants to change a task's priority
+  Examples: "set task 5 to high priority", "make it urgent", "priority high kardo task 3"
+
+- add_tags: User wants to tag a task
+  Examples: "tag task 3 as work, urgent", "add tag #personal to task 5", "task 2 ko work tag karo"
+
+- search_tasks: User wants to search for tasks by keyword
+  Examples: "search for meeting tasks", "find grocery", "meeting wale tasks dhundo"
+
+- set_recurring: User wants to make a task repeat
+  Examples: "make task daily", "set task 5 as weekly", "task 3 repeat karo daily"
 
 - unknown: Intent is unclear
 
@@ -75,12 +87,27 @@ When user says something like "task add karo k kal mujhey project submit karna h
    - "next week" → Date 7 days from now
    - If no date mentioned → null
 
+4. PRIORITY: Extract priority if mentioned
+   - "high priority", "urgent", "important", "zaroori" → "high"
+   - "medium priority" → "medium"
+   - "low priority", "not urgent" → "low"
+   - If not mentioned → null
+
+5. TAGS: Extract hashtags or tag keywords
+   - "#work #urgent" → ["work", "urgent"]
+   - "tag it as personal" → ["personal"]
+   - If not mentioned → null
+
 ENTITY EXTRACTION RULES:
 - task_id: Extract task identifier if mentioned (for update/complete/delete). Return null for add_task.
 - title: SHORT, CONCISE task name (2-5 words) - capitalize first letter
 - description: Full context/details from the message
 - status_filter: For list_tasks - "pending", "completed", or "all"
 - due_date: ISO format date (YYYY-MM-DD) or relative date string
+- priority: "high", "medium", "low", or null
+- tags: Array of tag strings, or null
+- search: Search query for list_tasks, or null
+- ordinal: Positional reference for task selection (1=newest, 2=second newest, -1=oldest/last). Extract from words like "1st"/"first"/"pehla" (=1), "2nd"/"second"/"doosra" (=2), "3rd"/"third"/"teesra" (=3), "last"/"oldest"/"aakhri" (=-1). Return null if no ordinal.
 
 RESPONSE FORMAT (JSON only):
 {
@@ -90,7 +117,11 @@ RESPONSE FORMAT (JSON only):
     "title": "<string or null>",
     "description": "<string or null>",
     "status_filter": "<pending|completed|all or null>",
-    "due_date": "<YYYY-MM-DD or null>"
+    "due_date": "<YYYY-MM-DD or null>",
+    "priority": "<high|medium|low or null>",
+    "tags": <array of strings or null>,
+    "search": "<string or null>",
+    "ordinal": <number or null>
   },
   "confidence": <0.0 to 1.0>
 }
@@ -218,6 +249,242 @@ function isObviousSetDueDateIntent(message: string): boolean {
 }
 
 /**
+ * Pre-check for clear set_priority intent
+ */
+function isObviousSetPriorityIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const patterns = [
+    /\bset\s+(priority|task)\b.*\b(high|medium|low|urgent)\b/i,
+    /\b(high|medium|low)\s+priority\s+(set|kar|karo|kardo)\b/i,
+    /\bpriority\s+(high|medium|low)\s+(kar|karo|kardo|set)\b/i,
+    /\b(make|set)\s+(it|this|task)\s+(urgent|important|high\s+priority|low\s+priority)\b/i,
+    /\bpriority\s+(badal|change)\b/i,
+  ];
+
+  return patterns.some(p => p.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear add_tags intent
+ */
+function isObviousAddTagsIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const patterns = [
+    /\b(tag|label)\s+(task|it|this)\b/i,
+    /\badd\s+tag\b/i,
+    /\btag\s+(add|kar|karo|kardo|laga)\b/i,
+    /\btag\s+(as|with)\b/i,
+    /\b(tag|label)\s+#/i,
+  ];
+
+  return patterns.some(p => p.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear search_tasks intent
+ */
+function isObviousSearchTasksIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const patterns = [
+    /^(search|find|look\s+for|dhundo|talaash)\b/i,
+    /\b(search|find|dhundo|talaash)\s+(for\s+)?(task|tasks)\b/i,
+    /\btask(s)?\s+(dhundo|talaash|search)\b/i,
+    /\bwale\s+task(s)?\s*(dhundo|dikhao)?\b/i,
+  ];
+
+  return patterns.some(p => p.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear set_recurring intent
+ */
+function isObviousSetRecurringIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const patterns = [
+    /\b(make|set)\s+(task\s+)?(daily|weekly|monthly)\b/i,
+    /\brepeat\s+(daily|weekly|monthly|har\s+din|har\s+hafta)\b/i,
+    /\b(daily|weekly|monthly)\s+(repeat|set|kar|karo|kardo|bana)\b/i,
+    /\brecurring\s+(set|kar|karo|kardo|bana)\b/i,
+    /\bhar\s+(din|roz|hafta|mahina)\s+(repeat|karo|karna)\b/i,
+  ];
+
+  return patterns.some(p => p.test(lowerMessage));
+}
+
+/**
+ * Extract ordinal from a title string. Returns { ordinal, cleanedTitle }.
+ * Supports: 1st/first/pehla, 2nd/second/doosra, 3rd/third/teesra, last/aakhri, etc.
+ */
+function extractOrdinalFromTitle(title: string): { ordinal: number | null; cleanedTitle: string } {
+  let ordinal: number | null = null;
+  let cleaned = title;
+
+  const ordinalPatterns: [RegExp, number][] = [
+    [/\b(1st|first|pehla|pehli|pahla|pahli|newest|latest)\b/i, 1],
+    [/\b(2nd|second|doosra|doosri|dusra|dusri)\b/i, 2],
+    [/\b(3rd|third|teesra|teesri|tisra|tisri)\b/i, 3],
+    [/\b(4th|fourth|chautha|chauthi)\b/i, 4],
+    [/\b(5th|fifth|panchwa|panchvi)\b/i, 5],
+    [/\b(last|oldest|aakhri|akhri)\b/i, -1],
+  ];
+
+  for (const [pattern, value] of ordinalPatterns) {
+    if (pattern.test(cleaned)) {
+      ordinal = value;
+      cleaned = cleaned.replace(pattern, '').trim();
+      break;
+    }
+  }
+
+  // If the title is just a number like "1", "2", treat as ordinal
+  if (!ordinal && /^\d+$/.test(cleaned)) {
+    ordinal = parseInt(cleaned, 10);
+    cleaned = '';
+  }
+
+  // If the title starts with a number followed by text like "2 buy milk"
+  if (!ordinal) {
+    const leadingNumMatch = cleaned.match(/^(\d+)\s+(.+)$/);
+    if (leadingNumMatch) {
+      ordinal = parseInt(leadingNumMatch[1], 10);
+      cleaned = leadingNumMatch[2];
+    }
+  }
+
+  return { ordinal, cleanedTitle: cleaned };
+}
+
+/**
+ * Extract priority details for set_priority intent
+ */
+function extractSetPriorityDetails(message: string): IntentEntities {
+  const priority = extractPriority(message) || 'medium';
+
+  // Extract task reference (remove priority-related words)
+  const cleaned = message
+    .replace(/\b(set|make|change)\s+(priority|task)\s*/gi, '')
+    .replace(/\b(to|as)\s*/gi, '')
+    .replace(/\b(high|medium|low)\s*(priority)?\b/gi, '')
+    .replace(/\b(urgent|important|zaroori)\b/gi, '')
+    .replace(/\b(priority)\s*(badal|change|set|kar|karo|kardo)?\b/gi, '')
+    .trim();
+
+  const { ordinal, cleanedTitle } = extractOrdinalFromTitle(cleaned);
+
+  return {
+    task_id: null,
+    title: cleanedTitle || null,
+    description: null,
+    status_filter: null,
+    due_date: null,
+    priority,
+    tags: null,
+    search: null,
+    ordinal,
+  };
+}
+
+/**
+ * Extract tags details for add_tags intent
+ */
+function extractAddTagsDetails(message: string): IntentEntities {
+  // Extract tags from #hashtags or comma-separated after "as"/"with"
+  let tags = extractTags(message);
+
+  if (!tags) {
+    // Try to extract from "tag task as work, urgent" pattern
+    const asMatch = message.match(/\b(?:as|with)\s+(.+)$/i);
+    if (asMatch) {
+      tags = asMatch[1].split(/[,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+  }
+
+  // Extract task reference
+  const cleaned = message
+    .replace(/\b(tag|label|add\s+tag)\s*/gi, '')
+    .replace(/\b(task|it|this)\s*/gi, '')
+    .replace(/\b(as|with)\s+.+$/gi, '')
+    .replace(/#[a-zA-Z0-9-]+/g, '')
+    .trim();
+
+  const { ordinal, cleanedTitle } = extractOrdinalFromTitle(cleaned);
+
+  return {
+    task_id: null,
+    title: cleanedTitle || null,
+    description: null,
+    status_filter: null,
+    due_date: null,
+    priority: null,
+    tags: tags && tags.length > 0 ? tags : null,
+    search: null,
+    ordinal,
+  };
+}
+
+/**
+ * Extract search query for search_tasks intent
+ */
+function extractSearchQuery(message: string): IntentEntities {
+  const cleaned = message
+    .replace(/^(search|find|look\s+for|dhundo|talaash)\s*/gi, '')
+    .replace(/\b(for\s+)?(task|tasks)\b/gi, '')
+    .replace(/\bwale\s+task(s)?\s*(dhundo|dikhao)?/gi, '')
+    .trim();
+
+  return {
+    task_id: null,
+    title: null,
+    description: null,
+    status_filter: null,
+    due_date: null,
+    priority: null,
+    tags: null,
+    search: cleaned || null,
+    ordinal: null,
+  };
+}
+
+/**
+ * Extract recurrence details for set_recurring intent
+ */
+function extractRecurringDetails(message: string): IntentEntities {
+  const lower = message.toLowerCase();
+  let pattern: string | null = null;
+
+  if (/\b(daily|har\s*(din|roz))\b/.test(lower)) pattern = 'daily';
+  else if (/\b(weekly|har\s*hafta|hafta\s*war)\b/.test(lower)) pattern = 'weekly';
+  else if (/\b(monthly|har\s*mahina|mahina\s*war)\b/.test(lower)) pattern = 'monthly';
+
+  // Extract task reference
+  const cleaned = message
+    .replace(/\b(make|set|repeat)\s*/gi, '')
+    .replace(/\b(task\s*)?/gi, '')
+    .replace(/\b(daily|weekly|monthly|recurring)\b/gi, '')
+    .replace(/\b(har\s*(din|roz|hafta|mahina))\b/gi, '')
+    .replace(/\b(repeat|karo|karna|bana|set|kar|kardo)\b/gi, '')
+    .trim();
+
+  const { ordinal, cleanedTitle } = extractOrdinalFromTitle(cleaned);
+
+  return {
+    task_id: null,
+    title: cleanedTitle || null,
+    description: pattern, // Store pattern in description for the executor
+    status_filter: null,
+    due_date: null,
+    priority: null,
+    tags: null,
+    search: null,
+    ordinal,
+  };
+}
+
+/**
  * Extract task reference and due date for set_due_date intent
  */
 function extractDueDateDetails(message: string): IntentEntities {
@@ -259,12 +526,18 @@ function extractDueDateDetails(message: string): IntentEntities {
     title = cleanedMessage;
   }
 
+  const { ordinal, cleanedTitle } = extractOrdinalFromTitle(title || '');
+
   return {
     task_id: null,
-    title,
+    title: cleanedTitle || null,
     description: null,
     status_filter: null,
     due_date: dueDate,
+    priority: null,
+    tags: null,
+    search: null,
+    ordinal,
   };
 }
 
@@ -321,14 +594,18 @@ function extractTaskReference(message: string, intentType: string): IntentEntiti
   }
 
   // The remaining text is the task title/reference
-  const title = cleanedMessage.trim();
+  const { ordinal, cleanedTitle } = extractOrdinalFromTitle(cleanedMessage.trim());
 
   return {
     task_id: null,
-    title: title || null,
+    title: cleanedTitle || null,
     description: newTitle, // For update, description holds the new title value
     status_filter: null,
     due_date: null,
+    priority: null,
+    tags: null,
+    search: null,
+    ordinal,
   };
 }
 
@@ -378,12 +655,22 @@ function extractAddTaskDetails(message: string): IntentEntities {
     dueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }
 
+  // Extract priority if mentioned
+  const priority = extractPriority(message);
+
+  // Extract tags if mentioned (#tag format)
+  const tags = extractTags(message);
+
   return {
     task_id: null,
     title: title || cleanedMessage.slice(0, 50),
     description: cleanedMessage,
     status_filter: null,
     due_date: dueDate,
+    priority,
+    tags,
+    search: null,
+    ordinal: null,
   };
 }
 
@@ -471,6 +758,74 @@ export async function analyzeIntent(
         data: {
           intent: {
             intent: 'set_due_date',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious set_priority intent
+    if (isObviousSetPriorityIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious set_priority intent via pattern matching');
+      const entities = extractSetPriorityDetails(context.message);
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'set_priority',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious add_tags intent
+    if (isObviousAddTagsIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious add_tags intent via pattern matching');
+      const entities = extractAddTagsDetails(context.message);
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'add_tags',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious search_tasks intent
+    if (isObviousSearchTasksIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious search_tasks intent via pattern matching');
+      const entities = extractSearchQuery(context.message);
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'search_tasks',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious set_recurring intent
+    if (isObviousSetRecurringIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious set_recurring intent via pattern matching');
+      const entities = extractRecurringDetails(context.message);
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'set_recurring',
             entities,
             confidence: 0.95,
             raw_message: context.message,
@@ -570,6 +925,10 @@ function normalizeIntent(intent: unknown): IntentType {
     'delete_task',
     'set_due_date',
     'get_task_dates',
+    'set_priority',
+    'add_tags',
+    'search_tasks',
+    'set_recurring',
     'help',
     'greeting',
     'unknown',
@@ -601,12 +960,38 @@ function normalizeEntities(entities: Record<string, unknown>): IntentEntities {
     dueDate = normalizeDueDate(entities.due_date.trim());
   }
 
+  // Normalize priority
+  let priority: 'high' | 'medium' | 'low' | null = null;
+  if (typeof entities.priority === 'string') {
+    const p = entities.priority.toLowerCase();
+    if (p === 'high' || p === 'medium' || p === 'low') priority = p;
+  }
+
+  // Normalize tags
+  let tags: string[] | null = null;
+  if (Array.isArray(entities.tags) && entities.tags.length > 0) {
+    tags = entities.tags.map((t: unknown) => String(t).trim().toLowerCase()).filter(Boolean);
+  }
+
+  // Normalize search
+  const search = typeof entities.search === 'string' && entities.search.trim() ? entities.search.trim() : null;
+
+  // Normalize ordinal
+  let ordinal: number | null = null;
+  if (typeof entities.ordinal === 'number' && !isNaN(entities.ordinal)) {
+    ordinal = entities.ordinal;
+  }
+
   return {
     task_id: taskId,
     title: typeof entities.title === 'string' ? entities.title.trim() : null,
     description: typeof entities.description === 'string' ? entities.description.trim() : null,
     status_filter: normalizeStatusFilter(entities.status_filter),
     due_date: dueDate,
+    priority,
+    tags,
+    search,
+    ordinal,
   };
 }
 
@@ -726,7 +1111,33 @@ function createEmptyEntities(): IntentEntities {
     description: null,
     status_filter: null,
     due_date: null,
+    priority: null,
+    tags: null,
+    search: null,
+    ordinal: null,
   };
+}
+
+/**
+ * Extract priority from message text
+ */
+function extractPriority(message: string): 'high' | 'medium' | 'low' | null {
+  const lower = message.toLowerCase();
+  if (/\b(high\s+priority|urgent|important|zaroori|fori)\b/.test(lower)) return 'high';
+  if (/\b(low\s+priority|not\s+urgent|kam\s+zaroori)\b/.test(lower)) return 'low';
+  if (/\b(medium\s+priority)\b/.test(lower)) return 'medium';
+  return null;
+}
+
+/**
+ * Extract tags from message (hashtag format: #work #personal)
+ */
+function extractTags(message: string): string[] | null {
+  const tagMatches = message.match(/#([a-zA-Z0-9-]+)/g);
+  if (tagMatches && tagMatches.length > 0) {
+    return tagMatches.map(t => t.slice(1).toLowerCase());
+  }
+  return null;
 }
 
 /**

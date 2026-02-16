@@ -4,6 +4,8 @@ import {
   CreateTaskRequest,
   UpdateTaskRequest,
   ApiError,
+  TaskFilterState,
+  SORT_FIELD_MAP,
 } from '@/types';
 
 // API configuration - use local proxy routes (they handle session tokens server-side)
@@ -33,8 +35,6 @@ api.interceptors.response.use(
     const status = error.response?.status;
 
     // Don't retry on client errors (4xx) - let components handle auth redirects
-    // NOTE: 401 handling is done by React components (useAuth hook), not here
-    // This prevents redirect loops when session checks happen on unauthenticated pages
     if (status && status >= 400 && status < 500) {
       return Promise.reject(error);
     }
@@ -78,40 +78,96 @@ export function getErrorMessage(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
+// Build query string from filter state
+function buildTaskQueryString(filters?: Partial<TaskFilterState>): string {
+  if (!filters) return '';
+
+  const params = new URLSearchParams();
+
+  if (filters.filter && filters.filter !== 'all') {
+    params.set('status', filters.filter);
+  }
+  if (filters.priority) {
+    params.set('priority', filters.priority);
+  }
+  if (filters.tags && filters.tags.length > 0) {
+    filters.tags.forEach((tag) => params.append('tag', tag));
+  }
+  if (filters.search) {
+    params.set('search', filters.search);
+  }
+  if (filters.overdue) {
+    params.set('overdue', 'true');
+  }
+  if (filters.sortBy) {
+    params.set('sort_by', SORT_FIELD_MAP[filters.sortBy] || 'created_at');
+  }
+  if (filters.sortDirection) {
+    params.set('sort_dir', filters.sortDirection);
+  }
+
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+// Transform snake_case backend response to camelCase frontend types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function transformTask(raw: any): Task {
+  return {
+    id: raw.id,
+    userId: raw.user_id ?? raw.userId ?? '',
+    title: raw.title ?? '',
+    description: raw.description ?? undefined,
+    completed: raw.completed ?? false,
+    priority: raw.priority ?? 'medium',
+    tags: raw.tags ?? [],
+    dueDate: raw.due_date ?? raw.dueDate ?? null,
+    remindAt: raw.remind_at ?? raw.remindAt ?? null,
+    reminderSent: raw.reminder_sent ?? raw.reminderSent ?? false,
+    isRecurring: raw.is_recurring ?? raw.isRecurring ?? false,
+    recurrencePattern: raw.recurrence_pattern ?? raw.recurrencePattern ?? null,
+    recurrenceInterval: raw.recurrence_interval ?? raw.recurrenceInterval ?? 1,
+    parentTaskId: raw.parent_task_id ?? raw.parentTaskId ?? null,
+    createdAt: raw.created_at ?? raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updated_at ?? raw.updatedAt ?? new Date().toISOString(),
+  };
+}
+
 // API Methods
 // All routes go through local Next.js API proxy routes
-// which handle session token extraction from cookies server-side
 
 // Tasks - using local /api/tasks proxy routes
-export async function getTasks(): Promise<Task[]> {
-  const response = await api.get<Task[]>('/api/tasks');
-  return response.data;
+export async function getTasks(filters?: Partial<TaskFilterState>): Promise<Task[]> {
+  const qs = buildTaskQueryString(filters);
+  const response = await api.get(`/api/tasks${qs}`);
+  const data = Array.isArray(response.data) ? response.data : [];
+  return data.map(transformTask);
 }
 
 export async function getTask(taskId: string): Promise<Task> {
-  const response = await api.get<Task>(`/api/tasks/${taskId}`);
-  return response.data;
+  const response = await api.get(`/api/tasks/${taskId}`);
+  return transformTask(response.data);
 }
 
 export async function createTask(data: CreateTaskRequest): Promise<Task> {
-  const response = await api.post<Task>('/api/tasks', data);
-  return response.data;
+  const response = await api.post('/api/tasks', data);
+  return transformTask(response.data);
 }
 
 export async function updateTask(
   taskId: string,
   data: UpdateTaskRequest
 ): Promise<Task> {
-  const response = await api.put<Task>(`/api/tasks/${taskId}`, data);
-  return response.data;
+  const response = await api.put(`/api/tasks/${taskId}`, data);
+  return transformTask(response.data);
 }
 
 export async function patchTask(
   taskId: string,
   data: Partial<UpdateTaskRequest>
 ): Promise<Task> {
-  const response = await api.patch<Task>(`/api/tasks/${taskId}`, data);
-  return response.data;
+  const response = await api.patch(`/api/tasks/${taskId}`, data);
+  return transformTask(response.data);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
@@ -119,7 +175,6 @@ export async function deleteTask(taskId: string): Promise<void> {
 }
 
 // Legacy function signatures for backwards compatibility
-// These wrap the new functions but accept userId as first param (ignored)
 export async function getTasksWithUserId(userId: string): Promise<Task[]> {
   return getTasks();
 }

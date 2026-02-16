@@ -1,10 +1,8 @@
 /**
  * MCP Type Definitions
- * Feature: 003-ai-todo-chatbot
- * Task: T006
+ * Feature: 003-ai-todo-chatbot / Phase 5 Part A
  *
  * TypeScript interfaces for MCP (Model Context Protocol) Server integration.
- * Based on contracts/mcp-tools.json schema definitions.
  */
 
 // =============================================================================
@@ -24,7 +22,7 @@ export interface JSONSchema {
 }
 
 export interface PropertySchema {
-  type: 'string' | 'number' | 'boolean' | 'integer';
+  type: 'string' | 'number' | 'boolean' | 'integer' | 'array';
   description: string;
   enum?: string[];
   minLength?: number;
@@ -32,6 +30,7 @@ export interface PropertySchema {
   minimum?: number;
   format?: string;
   default?: unknown;
+  items?: { type: string };
 }
 
 // =============================================================================
@@ -100,29 +99,42 @@ export interface MCPContext {
 export interface AddTaskInput {
   title: string;
   description?: string;
+  priority?: 'high' | 'medium' | 'low';
+  tags?: string[];
   due_date?: string;
+  is_recurring?: boolean;
+  recurrence_pattern?: 'daily' | 'weekly' | 'monthly';
+  recurrence_interval?: number;
 }
 
 export interface ListTasksInput {
   status_filter?: 'pending' | 'completed' | 'all';
+  priority?: 'high' | 'medium' | 'low';
+  search?: string;
+  sort_by?: 'created_at' | 'title' | 'due_date' | 'priority';
+  sort_dir?: 'asc' | 'desc';
+  overdue?: boolean;
 }
 
 export interface UpdateTaskInput {
-  task_id: string;  // Backend uses UUID
+  task_id: string;
   title?: string;
   description?: string;
+  priority?: 'high' | 'medium' | 'low';
+  tags?: string[];
+  due_date?: string;
 }
 
 export interface CompleteTaskInput {
-  task_id: string;  // Backend uses UUID
+  task_id: string;
 }
 
 export interface DeleteTaskInput {
-  task_id: string;  // Backend uses UUID
+  task_id: string;
 }
 
 export interface SetDueDateInput {
-  task_id: string;  // Backend uses UUID
+  task_id: string;
   due_date: string;
 }
 
@@ -130,15 +142,21 @@ export interface SetDueDateInput {
 // MCP Tool Output Types
 // =============================================================================
 
-// Task type from Phase II backend
-// Backend uses 'completed' field (not 'is_completed')
-// Task IDs are UUIDs (strings), not integers
-// Note: Backend does NOT have due_date or completed_at fields
+// Task type from Phase II backend - Phase 5 enhanced
 export interface Task {
   id: string;
   title: string;
   description: string | null;
   completed: boolean;
+  priority: 'high' | 'medium' | 'low';
+  tags: string[];
+  due_date: string | null;
+  remind_at: string | null;
+  reminder_sent: boolean;
+  is_recurring: boolean;
+  recurrence_pattern: string | null;
+  recurrence_interval: number;
+  parent_task_id: string | null;
   created_at: string;
   updated_at: string;
   user_id?: string;
@@ -183,6 +201,10 @@ export const MCP_TOOL_NAMES = [
   'complete_task',
   'delete_task',
   'set_due_date',
+  'set_priority',
+  'add_tags',
+  'search_tasks',
+  'set_recurring',
 ] as const;
 
 export type MCPToolName = typeof MCP_TOOL_NAMES[number];

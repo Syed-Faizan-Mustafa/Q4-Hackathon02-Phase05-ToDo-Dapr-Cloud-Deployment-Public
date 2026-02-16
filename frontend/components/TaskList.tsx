@@ -17,17 +17,16 @@ interface TaskListProps {
 // Loading skeleton component
 function TaskSkeleton() {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+    <div className="bg-white rounded-2xl border border-gray-200/80 p-4 pt-5 shadow-card animate-pulse">
       <div className="flex items-start gap-3">
-        <div className="w-5 h-5 rounded bg-gray-200 flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-5 bg-gray-200 rounded w-3/4" />
-          <div className="h-4 bg-gray-200 rounded w-full" />
-          <div className="h-3 bg-gray-200 rounded w-1/4" />
-        </div>
-        <div className="flex gap-1">
-          <div className="w-8 h-8 bg-gray-200 rounded" />
-          <div className="w-8 h-8 bg-gray-200 rounded" />
+        <div className="w-5 h-5 rounded-md bg-gray-200 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 space-y-3">
+          <div className="h-4 bg-gray-200 rounded-lg w-3/4" />
+          <div className="h-3 bg-gray-200 rounded-lg w-full" />
+          <div className="flex gap-2">
+            <div className="h-3 bg-gray-200 rounded-lg w-24" />
+            <div className="h-3 bg-gray-200 rounded-full w-14" />
+          </div>
         </div>
       </div>
     </div>
@@ -46,8 +45,8 @@ export function TaskList({
   // Loading state
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
+      <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <TaskSkeleton key={i} />
         ))}
       </div>
@@ -62,15 +61,20 @@ export function TaskList({
   // Task grid
   return (
     <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-      {tasks.map((task) => (
-        <TaskCard
+      {tasks.map((task, index) => (
+        <div
           key={task.id}
-          task={task}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onToggleComplete={onToggleComplete}
-          isToggling={isToggling}
-        />
+          className="animate-slide-up"
+          style={{ animationDelay: `${Math.min(index * 50, 300)}ms` }}
+        >
+          <TaskCard
+            task={task}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onToggleComplete={onToggleComplete}
+            isToggling={isToggling}
+          />
+        </div>
       ))}
     </div>
   );
