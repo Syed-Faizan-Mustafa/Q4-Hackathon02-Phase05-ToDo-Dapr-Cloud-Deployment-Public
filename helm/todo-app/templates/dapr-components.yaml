@@ -22,12 +22,6 @@ spec:
       value: "3.0.0"
     - name: disableTls
       value: "true"
-  scopes:
-    - {{ .Values.backend.dapr.appId }}
-    - {{ .Values.auditService.dapr.appId }}
-    - {{ .Values.notificationService.dapr.appId }}
-    - {{ .Values.recurringTaskService.dapr.appId }}
-    - {{ .Values.websocketService.dapr.appId }}
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Component
@@ -50,7 +44,4 @@ spec:
       value: "3600"
     - name: actorStateStore
       value: "false"
-  scopes:
-    - {{ .Values.auditService.dapr.appId }}
-    - {{ .Values.notificationService.dapr.appId }}
 {{- end }}

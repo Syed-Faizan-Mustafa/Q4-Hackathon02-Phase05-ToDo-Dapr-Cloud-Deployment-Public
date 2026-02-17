@@ -106,7 +106,7 @@ export async function executeMCPIntent(
  * Check if intent needs task resolution
  */
 function needsTaskResolution(intent: ChatIntent): boolean {
-  return ['complete_task', 'update_task', 'delete_task', 'set_due_date', 'set_priority', 'add_tags', 'set_recurring'].includes(intent.intent);
+  return ['complete_task', 'incomplete_task', 'update_task', 'delete_task', 'set_due_date', 'set_priority', 'add_tags', 'set_recurring'].includes(intent.intent);
 }
 
 /**
@@ -348,6 +348,7 @@ function mapMCPResultToOutput(
     list_tasks: 'list',
     update_task: 'update',
     complete_task: 'complete',
+    incomplete_task: 'incomplete',
     delete_task: 'delete',
     set_due_date: 'set_due_date',
     set_priority: 'set_priority',

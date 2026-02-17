@@ -20,6 +20,7 @@ export type IntentType =
   | 'list_tasks'
   | 'update_task'
   | 'complete_task'
+  | 'incomplete_task'
   | 'delete_task'
   | 'set_due_date'
   | 'get_task_dates'

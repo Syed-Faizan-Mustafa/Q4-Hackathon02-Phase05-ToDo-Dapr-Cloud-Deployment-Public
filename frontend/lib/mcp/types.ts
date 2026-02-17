@@ -199,6 +199,7 @@ export const MCP_TOOL_NAMES = [
   'list_tasks',
   'update_task',
   'complete_task',
+  'incomplete_task',
   'delete_task',
   'set_due_date',
   'set_priority',

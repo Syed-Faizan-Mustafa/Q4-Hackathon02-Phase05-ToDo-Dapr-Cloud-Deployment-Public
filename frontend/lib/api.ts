@@ -111,7 +111,7 @@ function buildTaskQueryString(filters?: Partial<TaskFilterState>): string {
 }
 
 // Transform snake_case backend response to camelCase frontend types
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line
 function transformTask(raw: any): Task {
   return {
     id: raw.id,

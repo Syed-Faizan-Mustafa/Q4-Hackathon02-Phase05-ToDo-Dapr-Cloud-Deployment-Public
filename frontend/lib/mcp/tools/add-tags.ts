@@ -85,7 +85,7 @@ export async function addTagsHandler(
 
     const currentTask: Task = await getResponse.json();
     const existingTags = currentTask.tags || [];
-    const mergedTags = [...new Set([...existingTags, ...newTags.map(t => t.toLowerCase())])];
+    const mergedTags = Array.from(new Set([...existingTags, ...newTags.map(t => t.toLowerCase())]));
 
     // Update with merged tags
     const response = await fetch(`${backendUrl}/api/v1/tasks/${task_id}`, {

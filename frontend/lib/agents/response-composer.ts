@@ -154,6 +154,15 @@ function getTemplateResponse(
       }
       break;
 
+    case 'incomplete':
+      if (result.task) {
+        return {
+          response: `"${result.task.title}" is now pending again. / "${result.task.title}" ab dobara pending hai. ○`,
+          suggestedActions: ['Show pending / Pending dikhao', 'Show my tasks / Meri tasks dikhao'],
+        };
+      }
+      break;
+
     case 'delete':
       // Delete action returns 'deleted: true' and 'message', not 'task'
       if (result.deleted || result.message) {
@@ -367,6 +376,7 @@ function getSuggestedActions(intent: ChatIntent): string[] {
     case 'list_tasks':
       return ['Mark a task done', 'Add a task'];
     case 'complete_task':
+    case 'incomplete_task':
       return ['Show pending tasks', 'Show completed tasks'];
     case 'update_task':
       return ['Show my tasks'];

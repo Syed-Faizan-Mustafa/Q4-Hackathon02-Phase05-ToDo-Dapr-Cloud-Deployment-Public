@@ -52,17 +52,15 @@ export default function TasksPage() {
   const [search, setSearch] = useState(defaultFilterState.search);
   const [overdue, setOverdue] = useState(defaultFilterState.overdue);
 
-  // Build filter state for API (server-side: status + sort only)
+  // Build filter state for API (server-side: sort only - status filtering done client-side)
   const filterState = useMemo<Partial<TaskFilterState>>(() => ({
-    filter,
     sortBy,
     sortDirection,
-  }), [filter, sortBy, sortDirection]);
+  }), [sortBy, sortDirection]);
 
   // Task data - server-side filtering
   const {
     tasks: rawTasks,
-    total: rawTotal,
     isLoading: tasksLoading,
     isError,
     error: tasksError,
@@ -79,9 +77,16 @@ export default function TasksPage() {
     refetch,
   } = useTasks(user?.id, filterState);
 
-  // Client-side filtering for search, priority, overdue
+  // Client-side filtering for status, search, priority, overdue
   const tasks = useMemo(() => {
     let filtered = rawTasks;
+
+    // Status filter (All / Pending / Done)
+    if (filter === 'pending') {
+      filtered = filtered.filter((t) => !t.completed);
+    } else if (filter === 'completed') {
+      filtered = filtered.filter((t) => t.completed);
+    }
 
     // Search filter (title + description, case-insensitive)
     if (search) {
@@ -107,16 +112,14 @@ export default function TasksPage() {
     }
 
     return filtered;
-  }, [rawTasks, search, priority, overdue]);
+  }, [rawTasks, filter, search, priority, overdue]);
 
-  const total = rawTotal;
-
-  // Task stats from current results
+  // Task stats from all tasks (not filtered)
   const stats = useMemo(() => {
-    const pending = tasks.filter((t) => !t.completed).length;
-    const completed = tasks.filter((t) => t.completed).length;
-    return { total: tasks.length, pending, completed };
-  }, [tasks]);
+    const pending = rawTasks.filter((t) => !t.completed).length;
+    const completed = rawTasks.filter((t) => t.completed).length;
+    return { total: rawTasks.length, pending, completed };
+  }, [rawTasks]);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -248,7 +251,7 @@ export default function TasksPage() {
         </div>
 
         {/* Stats cards */}
-        {!tasksLoading && !isError && tasks.length > 0 && (
+        {!tasksLoading && !isError && rawTasks.length > 0 && (
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8 animate-slide-up">
             <div className="stat-card bg-gradient-to-br from-primary-50 to-primary-100/50 border border-primary-200/50">
               <p className="text-xs font-medium text-primary-600 uppercase tracking-wider">Total</p>
@@ -312,7 +315,7 @@ export default function TasksPage() {
               onPriorityChange={setPriority}
               onSearchChange={handleSearchChange}
               onOverdueChange={setOverdue}
-              totalTasks={total}
+              totalTasks={rawTasks.length}
               filteredCount={tasks.length}
             />
           </div>
@@ -327,6 +330,7 @@ export default function TasksPage() {
           onToggleComplete={toggleComplete}
           onAddTask={handleAddTask}
           isToggling={isToggling}
+          hasActiveFilters={filter !== 'all' || !!search || !!priority || overdue}
         />
       </main>
 

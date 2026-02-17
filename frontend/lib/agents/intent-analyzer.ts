@@ -37,6 +37,9 @@ SUPPORTED INTENTS:
 - complete_task: User wants to mark a task as done
   Examples: "Mark task 3 done", "Task 1 complete kardo", "ho gaya task 2", "done hai", "finish task", "complete 1st task", "pehla task complete karo"
 
+- incomplete_task: User wants to mark a completed task as incomplete/pending again
+  Examples: "mark incomplete task 3rd", "incomplete task buy milk", "undo complete", "mark as pending", "reopen task", "incomplete kardo"
+
 - delete_task: User wants to remove a task
   Examples: "Delete task 7", "Task 3 delete kardo", "hata do task 5", "remove kardo", "delete task 1st" (=delete newest), "delete buy milk 2nd" (=delete second newest "buy milk"), "aakhri task delete karo" (=delete oldest)
 
@@ -186,6 +189,24 @@ function isObviousCompleteTaskIntent(message: string): boolean {
   ];
 
   return completePatterns.some(pattern => pattern.test(lowerMessage));
+}
+
+/**
+ * Pre-check for clear incomplete_task intent (mark task as not done / pending)
+ */
+function isObviousIncompleteTaskIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const patterns = [
+    /\b(incomplete|uncomplete|undo)\s+/i,
+    /\bmark\s+(as\s+)?(incomplete|pending|undone|not\s+done)/i,
+    /\b(incomplete|pending)\s*(kar|karo|kardo|karein|karna)/i,
+    /\bnot\s+done\b/i,
+    /\bundo\s+(complete|done)/i,
+    /\breopen\s+/i,
+  ];
+
+  return patterns.some(p => p.test(lowerMessage));
 }
 
 /**
@@ -557,6 +578,13 @@ function extractTaskReference(message: string, intentType: string): IntentEntiti
       .replace(/^(ho\s+gaya|hogaya|mukammal)\s*/i, '')
       .replace(/^task\s*/i, '')
       .trim();
+  } else if (intentType === 'incomplete_task') {
+    cleanedMessage = message
+      .replace(/^(incomplete|uncomplete|undo|reopen)\s*/i, '')
+      .replace(/^mark\s+(as\s+)?(incomplete|pending|undone|not\s+done)\s*/i, '')
+      .replace(/\s*(incomplete|pending)\s*(kar|karo|kardo|karein|karna)?$/i, '')
+      .replace(/^task\s*/i, '')
+      .trim();
   } else if (intentType === 'update_task') {
     cleanedMessage = message
       .replace(/^(update|edit|change|modify|rename)\s*/i, '')
@@ -707,6 +735,23 @@ export async function analyzeIntent(
         data: {
           intent: {
             intent: 'complete_task',
+            entities,
+            confidence: 0.95,
+            raw_message: context.message,
+          },
+        },
+      };
+    }
+
+    // Quick check for obvious incomplete_task intent
+    if (isObviousIncompleteTaskIntent(context.message)) {
+      console.log('[Intent-Analyzer] Detected obvious incomplete_task intent via pattern matching');
+      const entities = extractTaskReference(context.message, 'incomplete_task');
+      return {
+        success: true,
+        data: {
+          intent: {
+            intent: 'incomplete_task',
             entities,
             confidence: 0.95,
             raw_message: context.message,
@@ -922,6 +967,7 @@ function normalizeIntent(intent: unknown): IntentType {
     'list_tasks',
     'update_task',
     'complete_task',
+    'incomplete_task',
     'delete_task',
     'set_due_date',
     'get_task_dates',

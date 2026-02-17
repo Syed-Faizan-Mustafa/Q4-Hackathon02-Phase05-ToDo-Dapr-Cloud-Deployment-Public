@@ -18,6 +18,7 @@ import { addTaskTool, addTaskHandler } from './tools/add-task';
 import { listTasksTool, listTasksHandler } from './tools/list-tasks';
 import { updateTaskTool, updateTaskHandler } from './tools/update-task';
 import { completeTaskTool, completeTaskHandler } from './tools/complete-task';
+import { incompleteTaskTool, incompleteTaskHandler } from './tools/incomplete-task';
 import { deleteTaskTool, deleteTaskHandler } from './tools/delete-task';
 import { setDueDateTool, setDueDateHandler } from './tools/set-due-date';
 import { setPriorityTool, setPriorityHandler } from './tools/set-priority';
@@ -39,6 +40,7 @@ const toolRegistry: Map<MCPToolName, ToolRegistryEntry> = new Map([
   ['list_tasks', { tool: listTasksTool, handler: listTasksHandler }],
   ['update_task', { tool: updateTaskTool, handler: updateTaskHandler }],
   ['complete_task', { tool: completeTaskTool, handler: completeTaskHandler }],
+  ['incomplete_task', { tool: incompleteTaskTool, handler: incompleteTaskHandler }],
   ['delete_task', { tool: deleteTaskTool, handler: deleteTaskHandler }],
   ['set_due_date', { tool: setDueDateTool, handler: setDueDateHandler }],
   ['set_priority', { tool: setPriorityTool, handler: setPriorityHandler }],

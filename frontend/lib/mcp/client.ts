@@ -91,6 +91,7 @@ export function intentToToolName(intent: string): MCPToolName | null {
     list_tasks: 'list_tasks',
     update_task: 'update_task',
     complete_task: 'complete_task',
+    incomplete_task: 'incomplete_task',
     delete_task: 'delete_task',
     set_due_date: 'set_due_date',
     get_task_dates: 'list_tasks', // Map to list_tasks with task_id filter
@@ -147,6 +148,11 @@ export function buildToolArgs(
       });
 
     case 'complete_task':
+      return filterNulls({
+        task_id: entities.task_id,
+      });
+
+    case 'incomplete_task':
       return filterNulls({
         task_id: entities.task_id,
       });

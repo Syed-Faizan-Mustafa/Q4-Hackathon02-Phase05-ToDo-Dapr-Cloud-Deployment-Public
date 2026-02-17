@@ -12,6 +12,7 @@ interface TaskListProps {
   onToggleComplete: (taskId: string) => void;
   onAddTask: () => void;
   isToggling?: boolean;
+  hasActiveFilters?: boolean;
 }
 
 // Loading skeleton component
@@ -41,6 +42,7 @@ export function TaskList({
   onToggleComplete,
   onAddTask,
   isToggling,
+  hasActiveFilters,
 }: TaskListProps) {
   // Loading state
   if (isLoading) {
@@ -53,8 +55,18 @@ export function TaskList({
     );
   }
 
-  // Empty state
+  // Empty state - different message when filters are active
   if (tasks.length === 0) {
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          title="No matching tasks"
+          description="No tasks match your current filters or search. Try adjusting your filters or search terms."
+          actionLabel="Create a New Task"
+          onAction={onAddTask}
+        />
+      );
+    }
     return <EmptyState onAction={onAddTask} />;
   }
 
